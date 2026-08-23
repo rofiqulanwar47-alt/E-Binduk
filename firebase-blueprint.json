@@ -1,0 +1,83 @@
+{
+  "entities": {
+    "students": {
+      "title": "Students",
+      "description": "Buku Induk data records for students of SMP Negeri 2 Kasihan",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "noUrutInduk": { "type": "string" },
+        "nis": { "type": "string" },
+        "nisn": { "type": "string" },
+        "namaLengkap": { "type": "string" },
+        "namaPanggilan": { "type": "string" },
+        "jenisKelamin": { "type": "string" },
+        "tempatLahir": { "type": "string" },
+        "tanggalLahir": { "type": "string" },
+        "agama": { "type": "string" },
+        "kewarganegaraan": { "type": "string" },
+        "anakKe": { "type": "number" },
+        "jumlahSaudaraKandung": { "type": "number" },
+        "jumlahSaudaraTiri": { "type": "number" },
+        "jumlahSaudaraAngkat": { "type": "number" },
+        "statusAnak": { "type": "string" },
+        "bahasaSehariHari": { "type": "string" },
+        "alamatSiswa": { "type": "object" },
+        "kontakSiswa": { "type": "object" },
+        "dataJasmani": { "type": "object" },
+        "pendidikanSebelumnya": { "type": "object" },
+        "penerimaan": { "type": "object" },
+        "ayahKandung": { "type": "object" },
+        "ibuKandung": { "type": "object" },
+        "wali": { "type": "object" },
+        "perkembangan": { "type": "object" },
+        "meninggalkanSekolah": { "type": "object" },
+        "lainLain": { "type": "object" },
+        "statusSiswa": { "type": "string" },
+        "kelasSekarang": { "type": "string" },
+        "fotoUrl": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": [
+        "id",
+        "nis",
+        "nisn",
+        "namaLengkap",
+        "jenisKelamin",
+        "tempatLahir",
+        "tanggalLahir",
+        "agama",
+        "statusSiswa",
+        "kelasSekarang"
+      ]
+    },
+    "schoolProfile": {
+      "title": "School Profile",
+      "description": "Official institution profile and administrative signatories",
+      "type": "object",
+      "properties": {
+        "namaSekolah": { "type": "string" },
+        "npsn": { "type": "string" },
+        "nss": { "type": "string" },
+        "alamat": { "type": "string" },
+        "desaKelurahan": { "type": "string" },
+        "kecamatan": { "type": "string" },
+        "kabupatenKota": { "type": "string" },
+        "provinsi": { "type": "string" },
+        "kodePos": { "type": "string" },
+        "telepon": { "type": "string" },
+        "email": { "type": "string" },
+        "website": { "type": "string" },
+        "namaKepalaSekolah": { "type": "string" },
+        "nipKepalaSekolah": { "type": "string" },
+        "namaPetugasTU": { "type": "string" },
+        "nipPetugasTU": { "type": "string" },
+        "tahunAjaran": { "type": "string" },
+        "semester": { "type": "string" },
+        "logoUrl": { "type": "string" }
+      },
+      "required": ["namaSekolah", "npsn", "namaKepalaSekolah"]
+    }
+  }
+}

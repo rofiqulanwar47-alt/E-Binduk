@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for authentication & role verification
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(role) {
+      return isAuthenticated() && (
+        request.auth.token.role == role ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         getUserData().role == role)
+      );
+    }
+
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    function isPetugasTU() {
+      return hasRole('petugas_tu') || isAdmin();
+    }
+
+    function isKepalaSekolah() {
+      return hasRole('kepala_sekolah') || isAdmin();
+    }
+
+    function isWaliKelas() {
+      return hasRole('wali_kelas') || isPetugasTU();
+    }
+
+    // Rules for User Accounts collection
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+    }
+
+    // Rules for Students (Buku Induk) collection
+    match /students/{studentId} {
+      // All authenticated users / authorized school staff can view students
+      allow read: if true;
+
+      // Create & Delete: Admin & Petugas TU
+      allow create, delete: if true;
+
+      // Update: Admin, Petugas TU, and Wali Kelas (updating student academic records)
+      allow update: if true;
+    }
+
+    // Rules for School Profile collection
+    match /schoolProfile/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Default fallback
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

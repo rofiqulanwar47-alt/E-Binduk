@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@layer base {
+  @page {
+    size: auto;
+    margin: 8mm 10mm 8mm 10mm;
+  }
+}
+
+@media print {
+  /* Force exact color reproduction on print and PDF */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Hide all unnecessary web UI elements during print */
+  aside,
+  header,
+  nav,
+  footer,
+  .print-hide,
+  [data-print-hide],
+  button:not(.print-include) {
+    display: none !important;
+  }
+
+  /* Reset layout constraints so printed document is full width and starts at top-left */
+  html, body, #root, main {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Remove sticky or fixed elements position */
+  .fixed, .sticky {
+    position: static !important;
+  }
+
+  /* Clean page break utilities */
+  .page-break-after {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  .page-break-before {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+
+  .page-break-inside-avoid {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Ensure sharp contrast and borders on printed tables */
+  table, th, td {
+    border-color: #334155 !important;
+    color: #0f172a !important;
+  }
+
+  img {
+    max-width: 100% !important;
+  }
+}
