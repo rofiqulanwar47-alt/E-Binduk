@@ -1,5 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Save, Award, Calculator, BookOpen, AlertCircle, CheckCircle2, User } from 'lucide-react';
+import {
+  X,
+  Save,
+  Award,
+  Calculator,
+  BookOpen,
+  AlertCircle,
+  CheckCircle2,
+  User,
+  Calendar,
+  Layers,
+  Copy,
+  ChevronRight,
+  Sparkles,
+  RotateCcw,
+} from 'lucide-react';
 import { Student, SubjectScore, SemesterReport } from '../types';
 
 interface EditScoreModalProps {
@@ -10,27 +25,49 @@ interface EditScoreModalProps {
   onSaveScore: (studentId: string, updatedReport: SemesterReport) => void;
 }
 
+type ScoreInputVal = number | '';
+
+interface FormScores {
+  pai: ScoreInputVal;
+  pancasila: ScoreInputVal;
+  bahasaIndonesia: ScoreInputVal;
+  matematika: ScoreInputVal;
+  ipa: ScoreInputVal;
+  ips: ScoreInputVal;
+  bahasaInggris: ScoreInputVal;
+  seniBudaya: ScoreInputVal;
+  pjok: ScoreInputVal;
+  informatika: ScoreInputVal;
+  bahasaJawa: ScoreInputVal;
+  catatan: string;
+}
+
 export const EditScoreModal: React.FC<EditScoreModalProps> = ({
   isOpen,
   student,
-  selectedSemester,
+  selectedSemester: initialSemester,
   onClose,
   onSaveScore,
 }) => {
-  const [scores, setScores] = useState<SubjectScore>({
-    pai: 80,
-    pancasila: 82,
-    bahasaIndonesia: 85,
-    matematika: 78,
-    ipa: 80,
-    ips: 83,
-    bahasaInggris: 81,
-    seniBudaya: 86,
-    pjok: 84,
-    informatika: 85,
-    bahasaJawa: 84,
+  const [activeSemester, setActiveSemester] = useState<number>(initialSemester || 1);
+
+  const [scores, setScores] = useState<FormScores>({
+    pai: '',
+    pancasila: '',
+    bahasaIndonesia: '',
+    matematika: '',
+    ipa: '',
+    ips: '',
+    bahasaInggris: '',
+    seniBudaya: '',
+    pjok: '',
+    informatika: '',
+    bahasaJawa: '',
     catatan: '',
   });
+
+  const [kelas, setKelas] = useState<string>('7A');
+  const [tahunAjaran, setTahunAjaran] = useState<string>('2026/2027');
 
   const [kehadiran, setKehadiran] = useState({
     sakit: 0,
@@ -40,25 +77,36 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
 
   const [sikapSpiritual, setSikapSpiritual] = useState<'Sangat Baik' | 'Baik' | 'Cukup'>('Sangat Baik');
   const [sikapSosial, setSikapSosial] = useState<'Sangat Baik' | 'Baik' | 'Cukup'>('Sangat Baik');
+  const [saveToast, setSaveToast] = useState<string | null>(null);
 
+  // Sync activeSemester when initialSemester changes
+  useEffect(() => {
+    if (initialSemester) {
+      setActiveSemester(initialSemester);
+    }
+  }, [initialSemester, isOpen]);
+
+  // Load semester report whenever student or activeSemester changes
   useEffect(() => {
     if (student) {
-      const existing = student.semesterReports?.find((r) => r.semester === selectedSemester);
-      if (existing) {
+      const existing = student.semesterReports?.find((r) => r.semester === activeSemester);
+      if (existing && existing.scores) {
         setScores({
-          pai: existing.scores.pai ?? 80,
-          pancasila: existing.scores.pancasila ?? 82,
-          bahasaIndonesia: existing.scores.bahasaIndonesia ?? 85,
-          matematika: existing.scores.matematika ?? 78,
-          ipa: existing.scores.ipa ?? 80,
-          ips: existing.scores.ips ?? 83,
-          bahasaInggris: existing.scores.bahasaInggris ?? 81,
-          seniBudaya: existing.scores.seniBudaya ?? 86,
-          pjok: existing.scores.pjok ?? 84,
-          informatika: existing.scores.informatika ?? 85,
-          bahasaJawa: existing.scores.bahasaJawa ?? 84,
+          pai: existing.scores.pai !== undefined && existing.scores.pai !== null ? existing.scores.pai : '',
+          pancasila: existing.scores.pancasila !== undefined && existing.scores.pancasila !== null ? existing.scores.pancasila : '',
+          bahasaIndonesia: existing.scores.bahasaIndonesia !== undefined && existing.scores.bahasaIndonesia !== null ? existing.scores.bahasaIndonesia : '',
+          matematika: existing.scores.matematika !== undefined && existing.scores.matematika !== null ? existing.scores.matematika : '',
+          ipa: existing.scores.ipa !== undefined && existing.scores.ipa !== null ? existing.scores.ipa : '',
+          ips: existing.scores.ips !== undefined && existing.scores.ips !== null ? existing.scores.ips : '',
+          bahasaInggris: existing.scores.bahasaInggris !== undefined && existing.scores.bahasaInggris !== null ? existing.scores.bahasaInggris : '',
+          seniBudaya: existing.scores.seniBudaya !== undefined && existing.scores.seniBudaya !== null ? existing.scores.seniBudaya : '',
+          pjok: existing.scores.pjok !== undefined && existing.scores.pjok !== null ? existing.scores.pjok : '',
+          informatika: existing.scores.informatika !== undefined && existing.scores.informatika !== null ? existing.scores.informatika : '',
+          bahasaJawa: existing.scores.bahasaJawa !== undefined && existing.scores.bahasaJawa !== null ? existing.scores.bahasaJawa : '',
           catatan: existing.scores.catatan || '',
         });
+        setKelas(existing.kelas || student.kelasSekarang || '7A');
+        setTahunAjaran(existing.tahunAjaran || '2026/2027');
         setKehadiran({
           sakit: existing.kehadiran?.sakit ?? 0,
           izin: existing.kehadiran?.izin ?? 0,
@@ -67,30 +115,41 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
         setSikapSpiritual(existing.sikapSpiritual || 'Sangat Baik');
         setSikapSosial(existing.sikapSosial || 'Sangat Baik');
       } else {
-        // Default values
+        // Derive appropriate default grade level for the semester
+        let defaultGrade = '7A';
+        if (student.kelasSekarang) {
+          const section = student.kelasSekarang.replace(/^\d+/, '') || 'A';
+          if (activeSemester === 1 || activeSemester === 2) defaultGrade = `7${section}`;
+          else if (activeSemester === 3 || activeSemester === 4) defaultGrade = `8${section}`;
+          else defaultGrade = `9${section}`;
+        }
+        setKelas(defaultGrade);
+        setTahunAjaran('2026/2027');
+
+        // Nilai default tetap KOSONG saat belum ada nilai
         setScores({
-          pai: 80,
-          pancasila: 82,
-          bahasaIndonesia: 85,
-          matematika: 78,
-          ipa: 80,
-          ips: 83,
-          bahasaInggris: 81,
-          seniBudaya: 86,
-          pjok: 84,
-          informatika: 85,
-          bahasaJawa: 84,
-          catatan: 'Menunjukkan pemahaman yang baik pada seluruh materi pembelajaran.',
+          pai: '',
+          pancasila: '',
+          bahasaIndonesia: '',
+          matematika: '',
+          ipa: '',
+          ips: '',
+          bahasaInggris: '',
+          seniBudaya: '',
+          pjok: '',
+          informatika: '',
+          bahasaJawa: '',
+          catatan: '',
         });
         setKehadiran({ sakit: 0, izin: 0, tanpaKeterangan: 0 });
         setSikapSpiritual('Sangat Baik');
         setSikapSosial('Sangat Baik');
       }
     }
-  }, [student, selectedSemester]);
+  }, [student, activeSemester]);
 
-  // Real-time calculation
-  const { totalScore, averageScore, predikat } = useMemo(() => {
+  // Real-time calculations: ONLY counting filled numeric scores
+  const { totalScore, averageScore, predikat, filledCount, totalSubjects } = useMemo(() => {
     const list = [
       scores.pai,
       scores.pancasila,
@@ -108,27 +167,77 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
     const total = list.reduce((a, b) => a + b, 0);
     const avg = list.length > 0 ? Number((total / list.length).toFixed(1)) : 0;
 
-    let pred = 'Cukup';
-    if (avg >= 88) pred = 'Sangat Baik (A)';
-    else if (avg >= 78) pred = 'Baik (B)';
-    else if (avg >= 70) pred = 'Cukup (C)';
-    else pred = 'Perlu Pendampingan (D)';
+    let pred = 'Belum Ada Nilai';
+    if (list.length > 0) {
+      if (avg >= 88) pred = 'Sangat Baik (A)';
+      else if (avg >= 78) pred = 'Baik (B)';
+      else if (avg >= 70) pred = 'Cukup (C)';
+      else pred = 'Perlu Pendampingan (D)';
+    }
 
-    return { totalScore: total, averageScore: avg, predikat: pred };
+    return {
+      totalScore: total,
+      averageScore: avg,
+      predikat: pred,
+      filledCount: list.length,
+      totalSubjects: 11,
+    };
   }, [scores]);
 
   if (!isOpen || !student) return null;
 
-  const handleScoreChange = (field: keyof SubjectScore, val: string) => {
+  const handleScoreChange = (field: keyof FormScores, val: string) => {
     if (field === 'catatan') {
       setScores((prev) => ({ ...prev, catatan: val }));
       return;
     }
-    const num = val === '' ? 0 : Number(val);
+    if (val === '' || val === null || val === undefined) {
+      setScores((prev) => ({ ...prev, [field]: '' }));
+      return;
+    }
+    const num = Number(val);
     if (!isNaN(num)) {
       const clamped = Math.max(0, Math.min(100, num));
       setScores((prev) => ({ ...prev, [field]: clamped }));
     }
+  };
+
+  const handleClearAllScores = () => {
+    setScores({
+      pai: '',
+      pancasila: '',
+      bahasaIndonesia: '',
+      matematika: '',
+      ipa: '',
+      ips: '',
+      bahasaInggris: '',
+      seniBudaya: '',
+      pjok: '',
+      informatika: '',
+      bahasaJawa: '',
+      catatan: '',
+    });
+    setSaveToast('Semua nilai mapel telah dikosongkan.');
+    setTimeout(() => setSaveToast(null), 2500);
+  };
+
+  const handleFillStandardKKTP = () => {
+    setScores({
+      pai: 80,
+      pancasila: 80,
+      bahasaIndonesia: 82,
+      matematika: 75,
+      ipa: 78,
+      ips: 78,
+      bahasaInggris: 78,
+      seniBudaya: 82,
+      pjok: 82,
+      informatika: 80,
+      bahasaJawa: 80,
+      catatan: 'Mencapai ketuntasan seluruh tujuan pembelajaran dengan baik.',
+    });
+    setSaveToast('Nilai standar tuntas KKTP berhasil dimuat.');
+    setTimeout(() => setSaveToast(null), 2500);
   };
 
   const handleAttendanceChange = (field: 'sakit' | 'izin' | 'tanpaKeterangan', val: string) => {
@@ -138,85 +247,327 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleCopyFromSemester = (fromSemester: number) => {
+    const sourceReport = student.semesterReports?.find((r) => r.semester === fromSemester);
+    if (sourceReport && sourceReport.scores) {
+      setScores({
+        pai: sourceReport.scores.pai !== undefined ? sourceReport.scores.pai : '',
+        pancasila: sourceReport.scores.pancasila !== undefined ? sourceReport.scores.pancasila : '',
+        bahasaIndonesia: sourceReport.scores.bahasaIndonesia !== undefined ? sourceReport.scores.bahasaIndonesia : '',
+        matematika: sourceReport.scores.matematika !== undefined ? sourceReport.scores.matematika : '',
+        ipa: sourceReport.scores.ipa !== undefined ? sourceReport.scores.ipa : '',
+        ips: sourceReport.scores.ips !== undefined ? sourceReport.scores.ips : '',
+        bahasaInggris: sourceReport.scores.bahasaInggris !== undefined ? sourceReport.scores.bahasaInggris : '',
+        seniBudaya: sourceReport.scores.seniBudaya !== undefined ? sourceReport.scores.seniBudaya : '',
+        pjok: sourceReport.scores.pjok !== undefined ? sourceReport.scores.pjok : '',
+        informatika: sourceReport.scores.informatika !== undefined ? sourceReport.scores.informatika : '',
+        bahasaJawa: sourceReport.scores.bahasaJawa !== undefined ? sourceReport.scores.bahasaJawa : '',
+        catatan: sourceReport.scores.catatan || '',
+      });
+      setKehadiran({
+        sakit: sourceReport.kehadiran?.sakit ?? 0,
+        izin: sourceReport.kehadiran?.izin ?? 0,
+        tanpaKeterangan: sourceReport.kehadiran?.tanpaKeterangan ?? 0,
+      });
+      setSikapSpiritual(sourceReport.sikapSpiritual || 'Sangat Baik');
+      setSikapSosial(sourceReport.sikapSosial || 'Sangat Baik');
+      setSaveToast(`Data nilai berhasil disalin dari Semester ${fromSemester}`);
+      setTimeout(() => setSaveToast(null), 2500);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent, nextSemester: boolean = false) => {
     e.preventDefault();
+
+    const finalSubjectScores: SubjectScore = {
+      pai: scores.pai !== '' ? Number(scores.pai) : undefined,
+      pancasila: scores.pancasila !== '' ? Number(scores.pancasila) : undefined,
+      bahasaIndonesia: scores.bahasaIndonesia !== '' ? Number(scores.bahasaIndonesia) : undefined,
+      matematika: scores.matematika !== '' ? Number(scores.matematika) : undefined,
+      ipa: scores.ipa !== '' ? Number(scores.ipa) : undefined,
+      ips: scores.ips !== '' ? Number(scores.ips) : undefined,
+      bahasaInggris: scores.bahasaInggris !== '' ? Number(scores.bahasaInggris) : undefined,
+      seniBudaya: scores.seniBudaya !== '' ? Number(scores.seniBudaya) : undefined,
+      pjok: scores.pjok !== '' ? Number(scores.pjok) : undefined,
+      informatika: scores.informatika !== '' ? Number(scores.informatika) : undefined,
+      bahasaJawa: scores.bahasaJawa !== '' ? Number(scores.bahasaJawa) : undefined,
+      rataRata: filledCount > 0 ? averageScore : undefined,
+      catatan: scores.catatan?.trim() || '',
+    };
+
     const updatedReport: SemesterReport = {
-      semester: (selectedSemester as 1 | 2 | 3 | 4 | 5 | 6),
-      kelas: student.kelasSekarang || '7A',
-      tahunAjaran: '2024/2025',
-      scores: {
-        ...scores,
-        rataRata: averageScore,
-        catatan: scores.catatan?.trim() || 'Perkembangan belajar aktif dan tuntas memenuhi KKTP.',
-      },
+      semester: activeSemester as 1 | 2 | 3 | 4 | 5 | 6,
+      kelas: kelas.trim() || student.kelasSekarang || '7A',
+      tahunAjaran: tahunAjaran.trim() || '2026/2027',
+      scores: finalSubjectScores,
       kehadiran,
       sikapSpiritual,
       sikapSosial,
     };
 
     onSaveScore(student.id, updatedReport);
+
+    if (nextSemester && activeSemester < 6) {
+      setActiveSemester(activeSemester + 1);
+      setSaveToast(`Nilai Semester ${activeSemester} tersimpan! Beralih ke Semester ${activeSemester + 1}`);
+      setTimeout(() => setSaveToast(null), 3000);
+    } else {
+      onClose();
+    }
   };
 
+  const semestersList = [
+    { num: 1, label: 'Semester 1 (VII Ganjil)' },
+    { num: 2, label: 'Semester 2 (VII Genap)' },
+    { num: 3, label: 'Semester 3 (VIII Ganjil)' },
+    { num: 4, label: 'Semester 4 (VIII Genap)' },
+    { num: 5, label: 'Semester 5 (IX Ganjil)' },
+    { num: 6, label: 'Semester 6 (IX Genap)' },
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Header */}
-        <div className="px-6 py-4 bg-emerald-900 text-white flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94vh]">
+        {/* Header Modal */}
+        <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white flex items-center justify-between shrink-0 border-b border-slate-800">
           <div className="flex items-center gap-3">
             <img
               src={student.fotoUrl}
               alt={student.namaLengkap}
-              className="w-10 h-10 rounded-xl object-cover ring-2 ring-emerald-400 shrink-0"
+              className="w-11 h-11 rounded-xl object-cover ring-2 ring-emerald-400 shrink-0"
             />
             <div>
-              <h3 className="font-bold text-sm flex items-center gap-2">
-                <span>Edit Nilai Rapor: {student.namaLengkap}</span>
-              </h3>
-              <p className="text-[11px] text-emerald-200">
-                NISN: <strong className="text-white font-mono">{student.nisn}</strong> • Kelas: <strong className="text-white">{student.kelasSekarang}</strong> • Semester: <strong className="text-white">{selectedSemester}</strong>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-sm sm:text-base text-white">
+                  Input & Edit Nilai Rapor Siswa
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/30 text-emerald-300 border border-emerald-500/40">
+                  Semester 1 - 6
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 mt-0.5">
+                <strong className="text-white">{student.namaLengkap}</strong> • NISN:{' '}
+                <strong className="text-white font-mono">{student.nisn}</strong> • Kelas:{' '}
+                <strong className="text-white">{student.kelasSekarang}</strong>
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-emerald-300 hover:text-white hover:bg-emerald-800 transition"
+            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Live Summary Strip */}
-        <div className="px-6 py-2.5 bg-emerald-50 border-b border-emerald-100 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-4">
-            <div>
-              <span className="text-slate-500 font-semibold">Total Nilai:</span>{' '}
-              <strong className="text-emerald-950 font-mono text-sm">{totalScore}</strong>
-            </div>
-            <div>
-              <span className="text-slate-500 font-semibold">Rata-rata:</span>{' '}
-              <strong className="text-emerald-700 font-mono text-sm font-black">{averageScore}</strong>
+        {/* Semester Tab Switcher (Semester 1 to 6) */}
+        <div className="bg-slate-100 px-4 py-2.5 border-b border-slate-200 shrink-0">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Pilih Semester:</span>
+            </span>
+            <div className="flex items-center gap-2">
+              {student.semesterReports && student.semesterReports.length > 0 && (
+                <div className="text-[11px] text-slate-600 flex items-center gap-1">
+                  <span>Salin nilai:</span>
+                  {student.semesterReports.map((r) => (
+                    <button
+                      key={r.semester}
+                      type="button"
+                      onClick={() => handleCopyFromSemester(r.semester)}
+                      className="px-2 py-0.5 bg-white hover:bg-emerald-50 text-emerald-800 border border-slate-300 rounded text-[10px] font-bold transition flex items-center gap-0.5 cursor-pointer shadow-2xs"
+                      title={`Salin nilai dari Semester ${r.semester}`}
+                    >
+                      <Copy className="w-2.5 h-2.5" />
+                      <span>Smt {r.semester}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-slate-500 font-semibold">Predikat:</span>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-600 text-white shadow-xs">
-              {predikat}
-            </span>
+
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+            {semestersList.map((item) => {
+              const rep = student.semesterReports?.find((r) => r.semester === item.num);
+              const repScores = rep?.scores;
+              const filledInRep = repScores
+                ? [
+                    repScores.pai,
+                    repScores.pancasila,
+                    repScores.bahasaIndonesia,
+                    repScores.matematika,
+                    repScores.ipa,
+                    repScores.ips,
+                    repScores.bahasaInggris,
+                    repScores.seniBudaya,
+                    repScores.pjok,
+                    repScores.informatika,
+                    repScores.bahasaJawa,
+                  ].filter((v): v is number => typeof v === 'number' && !isNaN(v)).length
+                : 0;
+
+              const isComplete = filledInRep === 11;
+              const isPartial = filledInRep > 0 && filledInRep < 11;
+              const isActive = activeSemester === item.num;
+
+              return (
+                <button
+                  key={item.num}
+                  type="button"
+                  onClick={() => setActiveSemester(item.num)}
+                  className={`py-2 px-2 rounded-xl text-xs font-bold transition flex flex-col items-center justify-center gap-0.5 cursor-pointer relative ${
+                    isActive
+                      ? 'bg-emerald-700 text-white shadow-md shadow-emerald-900/20 ring-2 ring-emerald-500'
+                      : isComplete
+                      ? 'bg-emerald-50 hover:bg-emerald-100/80 text-emerald-900 border border-emerald-300'
+                      : isPartial
+                      ? 'bg-amber-50 hover:bg-amber-100/80 text-amber-900 border border-amber-300'
+                      : 'bg-white hover:bg-slate-50 text-slate-500 border border-slate-200'
+                  }`}
+                >
+                  <span className="text-xs">Semester {item.num}</span>
+                  <span
+                    className={`text-[9px] font-semibold ${
+                      isActive
+                        ? 'text-emerald-200'
+                        : isComplete
+                        ? 'text-emerald-700'
+                        : isPartial
+                        ? 'text-amber-700'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    {isComplete ? '● Lengkap' : isPartial ? `◐ ${filledInRep}/11` : '○ Kosong'}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
+        {/* Live Status & Summary Bar */}
+        <div className="px-6 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-500 font-semibold">Status Pengisian:</span>
+              {filledCount === 0 ? (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">
+                  ○ Belum Ada Nilai (0/11)
+                </span>
+              ) : filledCount < 11 ? (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                  ◐ Sebagian ({filledCount}/11 Mapel)
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  ● Lengkap (11/11 Mapel)
+                </span>
+              )}
+            </div>
+
+            <div>
+              <span className="text-slate-500 font-semibold">Total Nilai:</span>{' '}
+              <strong className="text-slate-900 font-mono text-sm">
+                {filledCount > 0 ? totalScore : '-'}
+              </strong>
+            </div>
+
+            <div>
+              <span className="text-slate-500 font-semibold">Rata-rata:</span>{' '}
+              <strong className={`font-mono text-sm font-black ${filledCount > 0 ? 'text-emerald-700' : 'text-slate-400'}`}>
+                {filledCount > 0 ? averageScore : '-'}
+              </strong>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-500 font-semibold">Predikat:</span>
+              <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
+                filledCount > 0 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
+              }`}>
+                {predikat}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleClearAllScores}
+              className="px-2.5 py-1 text-[11px] font-semibold bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded-lg transition flex items-center gap-1 cursor-pointer"
+              title="Kosongkan seluruh nilai pada semester ini"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Kosongkan Nilai</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleFillStandardKKTP}
+              className="px-2.5 py-1 text-[11px] font-semibold bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg transition flex items-center gap-1 cursor-pointer"
+              title="Isi contoh nilai standar tuntas KKTP (75-82)"
+            >
+              <Sparkles className="w-3 h-3 text-emerald-600" />
+              <span>Isi Nilai Standar</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Toast Alert Inside Modal */}
+        {saveToast && (
+          <div className="mx-6 mt-3 p-2.5 bg-emerald-100 border border-emerald-300 rounded-xl text-emerald-800 text-xs flex items-center gap-2 font-medium animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{saveToast}</span>
+          </div>
+        )}
+
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 text-xs">
+        <form onSubmit={(e) => handleSubmit(e, false)} className="p-6 overflow-y-auto space-y-5 text-xs flex-1">
+          {/* Class & Academic Year Metadata for this Semester */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">
+                Tingkat & Rombel Kelas pada Semester {activeSemester}
+              </label>
+              <input
+                type="text"
+                required
+                value={kelas}
+                onChange={(e) => setKelas(e.target.value)}
+                placeholder="Contoh: 7A / 8B / 9C"
+                className="w-full p-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block font-bold text-slate-700 mb-1">
+                Tahun Ajaran pada Semester {activeSemester}
+              </label>
+              <input
+                type="text"
+                required
+                value={tahunAjaran}
+                onChange={(e) => setTahunAjaran(e.target.value)}
+                placeholder="Contoh: 2026/2027"
+                className="w-full p-2 bg-white border border-slate-300 rounded-lg font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none"
+              />
+            </div>
+          </div>
+
           {/* Grid 11 Subjects */}
           <div>
-            <h4 className="font-bold text-slate-800 text-xs mb-3 flex items-center gap-1.5 uppercase tracking-wide">
-              <BookOpen className="w-4 h-4 text-emerald-600" />
-              <span>Nilai 11 Mata Pelajaran (Kurikulum Merdeka)</span>
-            </h4>
+            <div className="flex items-center justify-between mb-2.5">
+              <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1.5 uppercase tracking-wide">
+                <BookOpen className="w-4 h-4 text-emerald-600" />
+                <span>Nilai 11 Mata Pelajaran Kurikulum Merdeka (0 - 100)</span>
+              </h4>
+              <span className="text-[11px] text-slate-500 italic">
+                *Biarkan kosong jika nilai belum diinput
+              </span>
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
-              {/* PAI */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+              {/* 1. PAI */}
               <div className="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-slate-200">
                 <label className="font-semibold text-slate-700">1. PAI & Budi Pekerti</label>
                 <input
@@ -224,13 +575,17 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
                   min="0"
                   max="100"
                   value={scores.pai}
+                  placeholder="Kosong"
                   onChange={(e) => handleScoreChange('pai', e.target.value)}
-                  className="w-16 p-1.5 text-center font-mono font-bold text-slate-900 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500"
-                  required
+                  className={`w-20 p-1.5 text-center font-mono font-bold rounded border outline-none ${
+                    scores.pai !== ''
+                      ? 'bg-emerald-50/60 border-emerald-400 text-emerald-900'
+                      : 'bg-slate-50 border-slate-200 text-slate-400'
+                  } focus:ring-2 focus:ring-emerald-500`}
                 />
               </div>
 
-              {/* Pendidikan Pancasila */}
+              {/* 2. PPKn */}
               <div className="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-slate-200">
                 <label className="font-semibold text-slate-700">2. Pendidikan Pancasila (PPKn)</label>
                 <input
@@ -238,13 +593,17 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
                   min="0"
                   max="100"
                   value={scores.pancasila}
+                  placeholder="Kosong"
                   onChange={(e) => handleScoreChange('pancasila', e.target.value)}
-                  className="w-16 p-1.5 text-center font-mono font-bold text-slate-900 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500"
-                  required
+                  className={`w-20 p-1.5 text-center font-mono font-bold rounded border outline-none ${
+                    scores.pancasila !== ''
+                      ? 'bg-emerald-50/60 border-emerald-400 text-emerald-900'
+                      : 'bg-slate-50 border-slate-200 text-slate-400'
+                  } focus:ring-2 focus:ring-emerald-500`}
                 />
               </div>
 
-              {/* Bahasa Indonesia */}
+              {/* 3. Bahasa Indonesia */}
               <div className="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-slate-200">
                 <label className="font-semibold text-slate-700">3. Bahasa Indonesia</label>
                 <input
@@ -252,13 +611,17 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
                   min="0"
                   max="100"
                   value={scores.bahasaIndonesia}
+                  placeholder="Kosong"
                   onChange={(e) => handleScoreChange('bahasaIndonesia', e.target.value)}
-                  className="w-16 p-1.5 text-center font-mono font-bold text-slate-900 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500"
-                  required
+                  className={`w-20 p-1.5 text-center font-mono font-bold rounded border outline-none ${
+                    scores.bahasaIndonesia !== ''
+                      ? 'bg-emerald-50/60 border-emerald-400 text-emerald-900'
+                      : 'bg-slate-50 border-slate-200 text-slate-400'
+                  } focus:ring-2 focus:ring-emerald-500`}
                 />
               </div>
 
-              {/* Matematika */}
+              {/* 4. Matematika */}
               <div className="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-slate-200">
                 <label className="font-semibold text-slate-700">4. Matematika</label>
                 <input
@@ -266,13 +629,17 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
                   min="0"
                   max="100"
                   value={scores.matematika}
+                  placeholder="Kosong"
                   onChange={(e) => handleScoreChange('matematika', e.target.value)}
-                  className="w-16 p-1.5 text-center font-mono font-bold text-slate-900 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500"
-                  required
+                  className={`w-20 p-1.5 text-center font-mono font-bold rounded border outline-none ${
+                    scores.matematika !== ''
+                      ? 'bg-emerald-50/60 border-emerald-400 text-emerald-900'
+                      : 'bg-slate-50 border-slate-200 text-slate-400'
+                  } focus:ring-2 focus:ring-emerald-500`}
                 />
               </div>
 
-              {/* IPA */}
+              {/* 5. IPA */}
               <div className="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-slate-200">
                 <label className="font-semibold text-slate-700">5. Ilmu Pengetahuan Alam (IPA)</label>
                 <input
@@ -280,13 +647,17 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
                   min="0"
                   max="100"
                   value={scores.ipa}
+                  placeholder="Kosong"
                   onChange={(e) => handleScoreChange('ipa', e.target.value)}
-                  className="w-16 p-1.5 text-center font-mono font-bold text-slate-900 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500"
-                  required
+                  className={`w-20 p-1.5 text-center font-mono font-bold rounded border outline-none ${
+                    scores.ipa !== ''
+                      ? 'bg-emerald-50/60 border-emerald-400 text-emerald-900'
+                      : 'bg-slate-50 border-slate-200 text-slate-400'
+                  } focus:ring-2 focus:ring-emerald-500`}
                 />
               </div>
 
-              {/* IPS */}
+              {/* 6. IPS */}
               <div className="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-slate-200">
                 <label className="font-semibold text-slate-700">6. Ilmu Pengetahuan Sosial (IPS)</label>
                 <input
@@ -294,13 +665,17 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
                   min="0"
                   max="100"
                   value={scores.ips}
+                  placeholder="Kosong"
                   onChange={(e) => handleScoreChange('ips', e.target.value)}
-                  className="w-16 p-1.5 text-center font-mono font-bold text-slate-900 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500"
-                  required
+                  className={`w-20 p-1.5 text-center font-mono font-bold rounded border outline-none ${
+                    scores.ips !== ''
+                      ? 'bg-emerald-50/60 border-emerald-400 text-emerald-900'
+                      : 'bg-slate-50 border-slate-200 text-slate-400'
+                  } focus:ring-2 focus:ring-emerald-500`}
                 />
               </div>
 
-              {/* Bahasa Inggris */}
+              {/* 7. Bahasa Inggris */}
               <div className="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-slate-200">
                 <label className="font-semibold text-slate-700">7. Bahasa Inggris</label>
                 <input
@@ -308,27 +683,35 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
                   min="0"
                   max="100"
                   value={scores.bahasaInggris}
+                  placeholder="Kosong"
                   onChange={(e) => handleScoreChange('bahasaInggris', e.target.value)}
-                  className="w-16 p-1.5 text-center font-mono font-bold text-slate-900 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500"
-                  required
+                  className={`w-20 p-1.5 text-center font-mono font-bold rounded border outline-none ${
+                    scores.bahasaInggris !== ''
+                      ? 'bg-emerald-50/60 border-emerald-400 text-emerald-900'
+                      : 'bg-slate-50 border-slate-200 text-slate-400'
+                  } focus:ring-2 focus:ring-emerald-500`}
                 />
               </div>
 
-              {/* Seni Budaya */}
+              {/* 8. Seni Budaya */}
               <div className="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-slate-200">
-                <label className="font-semibold text-slate-700">8. Seni Budaya (Musik/Rupa/Tari)</label>
+                <label className="font-semibold text-slate-700">8. Seni Budaya (Rupa/Musik/Tari)</label>
                 <input
                   type="number"
                   min="0"
                   max="100"
                   value={scores.seniBudaya}
+                  placeholder="Kosong"
                   onChange={(e) => handleScoreChange('seniBudaya', e.target.value)}
-                  className="w-16 p-1.5 text-center font-mono font-bold text-slate-900 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500"
-                  required
+                  className={`w-20 p-1.5 text-center font-mono font-bold rounded border outline-none ${
+                    scores.seniBudaya !== ''
+                      ? 'bg-emerald-50/60 border-emerald-400 text-emerald-900'
+                      : 'bg-slate-50 border-slate-200 text-slate-400'
+                  } focus:ring-2 focus:ring-emerald-500`}
                 />
               </div>
 
-              {/* PJOK */}
+              {/* 9. PJOK */}
               <div className="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-slate-200">
                 <label className="font-semibold text-slate-700">9. PJOK</label>
                 <input
@@ -336,13 +719,17 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
                   min="0"
                   max="100"
                   value={scores.pjok}
+                  placeholder="Kosong"
                   onChange={(e) => handleScoreChange('pjok', e.target.value)}
-                  className="w-16 p-1.5 text-center font-mono font-bold text-slate-900 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500"
-                  required
+                  className={`w-20 p-1.5 text-center font-mono font-bold rounded border outline-none ${
+                    scores.pjok !== ''
+                      ? 'bg-emerald-50/60 border-emerald-400 text-emerald-900'
+                      : 'bg-slate-50 border-slate-200 text-slate-400'
+                  } focus:ring-2 focus:ring-emerald-500`}
                 />
               </div>
 
-              {/* Informatika */}
+              {/* 10. Informatika */}
               <div className="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-slate-200">
                 <label className="font-semibold text-slate-700">10. Informatika</label>
                 <input
@@ -350,13 +737,17 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
                   min="0"
                   max="100"
                   value={scores.informatika}
+                  placeholder="Kosong"
                   onChange={(e) => handleScoreChange('informatika', e.target.value)}
-                  className="w-16 p-1.5 text-center font-mono font-bold text-slate-900 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500"
-                  required
+                  className={`w-20 p-1.5 text-center font-mono font-bold rounded border outline-none ${
+                    scores.informatika !== ''
+                      ? 'bg-emerald-50/60 border-emerald-400 text-emerald-900'
+                      : 'bg-slate-50 border-slate-200 text-slate-400'
+                  } focus:ring-2 focus:ring-emerald-500`}
                 />
               </div>
 
-              {/* Bahasa Jawa */}
+              {/* 11. Mulok Bahasa Jawa */}
               <div className="flex items-center justify-between gap-2 p-2 bg-white rounded-lg border border-slate-200 sm:col-span-2">
                 <label className="font-semibold text-slate-700">11. Mulok Bahasa Jawa (DIY)</label>
                 <input
@@ -364,9 +755,13 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
                   min="0"
                   max="100"
                   value={scores.bahasaJawa}
+                  placeholder="Kosong"
                   onChange={(e) => handleScoreChange('bahasaJawa', e.target.value)}
-                  className="w-16 p-1.5 text-center font-mono font-bold text-slate-900 border border-slate-300 rounded focus:ring-2 focus:ring-emerald-500"
-                  required
+                  className={`w-20 p-1.5 text-center font-mono font-bold rounded border outline-none ${
+                    scores.bahasaJawa !== ''
+                      ? 'bg-emerald-50/60 border-emerald-400 text-emerald-900'
+                      : 'bg-slate-50 border-slate-200 text-slate-400'
+                  } focus:ring-2 focus:ring-emerald-500`}
                 />
               </div>
             </div>
@@ -376,7 +771,7 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Presensi */}
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
-              <h5 className="font-bold text-slate-800 text-xs">Presensi Kehadiran (Hari)</h5>
+              <h5 className="font-bold text-slate-800 text-xs">Presensi Kehadiran Semester {activeSemester} (Hari)</h5>
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="block text-[11px] text-slate-600 mb-1">Sakit (S)</label>
@@ -385,7 +780,7 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
                     min="0"
                     value={kehadiran.sakit}
                     onChange={(e) => handleAttendanceChange('sakit', e.target.value)}
-                    className="w-full p-1.5 border border-slate-300 rounded font-mono text-center"
+                    className="w-full p-1.5 border border-slate-300 rounded font-mono text-center font-bold bg-white"
                   />
                 </div>
                 <div>
@@ -395,7 +790,7 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
                     min="0"
                     value={kehadiran.izin}
                     onChange={(e) => handleAttendanceChange('izin', e.target.value)}
-                    className="w-full p-1.5 border border-slate-300 rounded font-mono text-center"
+                    className="w-full p-1.5 border border-slate-300 rounded font-mono text-center font-bold bg-white"
                   />
                 </div>
                 <div>
@@ -405,7 +800,7 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
                     min="0"
                     value={kehadiran.tanpaKeterangan}
                     onChange={(e) => handleAttendanceChange('tanpaKeterangan', e.target.value)}
-                    className="w-full p-1.5 border border-slate-300 rounded font-mono text-center"
+                    className="w-full p-1.5 border border-slate-300 rounded font-mono text-center font-bold bg-white"
                   />
                 </div>
               </div>
@@ -413,7 +808,7 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
 
             {/* Sikap */}
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
-              <h5 className="font-bold text-slate-800 text-xs">Predikat Sikap</h5>
+              <h5 className="font-bold text-slate-800 text-xs">Predikat Sikap Semester {activeSemester}</h5>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-[11px] text-slate-600 mb-1">Sikap Spiritual</label>
@@ -446,33 +841,48 @@ export const EditScoreModal: React.FC<EditScoreModalProps> = ({
           {/* Catatan Akademik */}
           <div>
             <label className="block font-bold text-slate-700 mb-1">
-              Catatan Wali Kelas / Deskripsi Capaian Kompetensi
+              Catatan Wali Kelas / Capaian Kompetensi Semester {activeSemester}
             </label>
             <textarea
               rows={2}
               value={scores.catatan || ''}
               onChange={(e) => handleScoreChange('catatan', e.target.value)}
-              placeholder="Catatan kemajuan akademik siswa pada semester ini..."
-              className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-medium text-slate-900"
+              placeholder="Catatan kemajuan capaian kompetensi belajar siswa..."
+              className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-medium text-slate-900 outline-none"
             />
           </div>
 
           {/* Footer Actions */}
-          <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-2.5">
+          <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition"
+              className="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer"
             >
-              Batal
+              Batal & Tutup
             </button>
-            <button
-              type="submit"
-              className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm flex items-center gap-1.5 transition"
-            >
-              <Save className="w-4 h-4" />
-              <span>Simpan Nilai Siswa</span>
-            </button>
+
+            <div className="flex items-center gap-2">
+              {activeSemester < 6 && (
+                <button
+                  type="button"
+                  onClick={(e) => handleSubmit(e, true)}
+                  className="px-4 py-2 text-xs font-bold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 rounded-xl transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Simpan & Lanjut Smt {activeSemester + 1}</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              <button
+                type="submit"
+                className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-600/30 flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <Save className="w-4 h-4" />
+                <span>Simpan Nilai Semester {activeSemester}</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>

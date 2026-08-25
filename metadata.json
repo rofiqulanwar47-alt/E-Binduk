@@ -1,6 +1,6 @@
 {
-  "name": "E-Binduk SMP N 2 Kasihan",
-  "description": "Sistem Informasi Buku Induk Siswa Digital Terpadu SMP Negeri 2 Kasihan Bantul Yogyakarta dengan format standar Kemendikbud, cetak lembar buku induk, kartu pelajar, dan analitik data.",
+  "name": "Buku Induk Siswa SMP Negeri 2 Kasihan",
+  "description": "Sistem Informasi Buku Induk Siswa Digital Terpadu SMP Negeri 2 Kasihan Bantul Yogyakarta dengan format standar Kemendikbud, cetak lembar buku induk, kartu pelajar, rekap nilai seluruh semester, dan analitik data.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -461,7 +461,7 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
                 </div>
                 <div>
                   <p className="font-bold underline uppercase">
-                    {schoolProfile.kepalaSekolah || (schoolProfile as any).namaKepalaSekolah || 'Drs. Tri Giyanto, M.Pd.'}
+                    {schoolProfile.kepalaSekolah || '-'}
                   </p>
                   <p className="text-[11px] font-mono">NIP. {schoolProfile.nipKepalaSekolah || '-'}</p>
                 </div>
@@ -469,7 +469,7 @@ export const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({
 
               <div className="text-center space-y-16">
                 <div>
-                  <p>Bantul, {formatDateIndonesian(new Date().toISOString().slice(0, 10))}</p>
+                  <p>{schoolProfile.kabupaten || 'Bantul'}, {formatDateIndonesian(new Date().toISOString().slice(0, 10))}</p>
                   <p className="font-bold">Pengelola Buku Induk & Kesiswaan</p>
                 </div>
                 <div>

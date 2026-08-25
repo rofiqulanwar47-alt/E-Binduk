@@ -96,7 +96,7 @@ export default function App() {
     };
 
     await handleSaveStudent(updatedStudent);
-    setScoreModalState({ isOpen: false, student: null, selectedSemester: 1 });
+    setScoreModalState((prev) => ({ ...prev, student: updatedStudent }));
     setToastMessage({
       type: 'success',
       title: 'Nilai Rapor Berhasil Disimpan',
@@ -133,6 +133,74 @@ export default function App() {
     setViewingStudent(null);
     setEditingStudent(null);
     setIsFormModalOpen(false);
+  };
+
+  // Restrict 'pengaturan' tab to Admin only
+  useEffect(() => {
+    if (activeTab === 'pengaturan' && currentUser && currentUser.role !== 'admin') {
+      setActiveTab('buku-induk');
+      setToastMessage({
+        type: 'error',
+        title: 'Akses Dibatasi',
+        message: 'Menu Pengaturan & Hak Akses hanya dapat diakses oleh Administrator Sistem.',
+      });
+    }
+  }, [activeTab, currentUser]);
+
+  // Bulk Import Students Handler
+  const handleBulkImportStudents = async (importedStudents: Student[], mode: 'append' | 'replace') => {
+    let nextList: Student[];
+    if (mode === 'replace') {
+      nextList = importedStudents;
+    } else {
+      const existingMap = new Map<string, Student>();
+      students.forEach((s) => existingMap.set(s.nisn || s.id, s));
+      importedStudents.forEach((s) => existingMap.set(s.nisn || s.id, s));
+      nextList = Array.from(existingMap.values());
+    }
+
+    setStudents(nextList);
+    saveStudents(nextList);
+
+    try {
+      setIsSyncing(true);
+      await syncAllStudentsToFirestore(nextList);
+      setIsCloudConnected(true);
+      setLastSyncTime(new Date().toLocaleTimeString('id-ID'));
+    } catch (e) {
+      console.error('Failed to sync imported students to Firestore:', e);
+    } finally {
+      setIsSyncing(false);
+    }
+
+    setToastMessage({
+      type: 'success',
+      title: 'Impor Data Siswa Berhasil',
+      message: `Berhasil mengimpor ${importedStudents.length} data siswa ke Buku Induk & Cloud.`,
+    });
+  };
+
+  // Bulk Import Scores Handler
+  const handleBulkImportScores = async (updatedStudents: Student[], count: number) => {
+    setStudents(updatedStudents);
+    saveStudents(updatedStudents);
+
+    try {
+      setIsSyncing(true);
+      await syncAllStudentsToFirestore(updatedStudents);
+      setIsCloudConnected(true);
+      setLastSyncTime(new Date().toLocaleTimeString('id-ID'));
+    } catch (e) {
+      console.error('Failed to sync imported scores to Firestore:', e);
+    } finally {
+      setIsSyncing(false);
+    }
+
+    setToastMessage({
+      type: 'success',
+      title: 'Impor Nilai Rapor Berhasil',
+      message: `Berhasil memperbarui nilai rapor ${count} siswa dan disinkronkan ke Cloud Firestore.`,
+    });
   };
 
   // Initial Load & Realtime Firestore Subscription
@@ -405,6 +473,170 @@ export default function App() {
     }
   };
 
+  // Promotion Handler (Tingkat 7 & 8)
+  const handlePromoteStudents = async (
+    promotions: { studentId: string; targetClass: string; newAcademicYear: string }[]
+  ) => {
+    if (!promotions || promotions.length === 0) return;
+
+    try {
+      setIsSyncing(true);
+      const promoMap = new Map(promotions.map((p) => [p.studentId, p]));
+      
+      const updatedStudents = students.map((s) => {
+        const promo = promoMap.get(s.id);
+        if (!promo) return s;
+
+        const currentProgression = s.riwayatPendidikan?.perkembanganSiswa || [];
+        const newProgression = [
+          ...currentProgression,
+          {
+            tahunAjaran: promo.newAcademicYear,
+            kelas: promo.targetClass,
+            nomorAbsen: s.noAbsen || 1,
+            keterangan: `Naik ke Kelas ${promo.targetClass} (Tahun Pelajaran ${promo.newAcademicYear})`,
+          },
+        ];
+
+        return {
+          ...s,
+          kelasSekarang: promo.targetClass,
+          status: 'Aktif' as const,
+          riwayatPendidikan: {
+            ...s.riwayatPendidikan,
+            perkembanganSiswa: newProgression,
+          },
+        };
+      });
+
+      setStudents(updatedStudents);
+      saveStudents(updatedStudents);
+
+      // Save each promoted student to Firestore
+      for (const promo of promotions) {
+        const target = updatedStudents.find((s) => s.id === promo.studentId);
+        if (target) {
+          await saveStudentToFirestore(target);
+        }
+      }
+
+      setIsCloudConnected(true);
+      setLastSyncTime(new Date().toLocaleTimeString('id-ID'));
+      setToastMessage({
+        type: 'success',
+        title: 'Kenaikan Kelas Berhasil',
+        message: `Sebanyak ${promotions.length} siswa berhasil dinaikkan kelas ke tingkat berikutnya.`,
+      });
+    } catch (err: any) {
+      console.error('Error promoting students:', err);
+      setToastMessage({
+        type: 'error',
+        title: 'Gagal Memproses Kenaikan Kelas',
+        message: `Terjadi kendala saat menyimpan kenaikan kelas: ${err?.message || err}`,
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Graduation Handler (Tingkat 9 -> Alumni)
+  const handleGraduateStudents = async (
+    graduations: {
+      studentId: string;
+      tanggalLulus: string;
+      melanjutkanKe: string;
+      noIjazahSmp?: string;
+    }[]
+  ) => {
+    if (!graduations || graduations.length === 0) return;
+
+    try {
+      setIsSyncing(true);
+      const gradMap = new Map(graduations.map((g) => [g.studentId, g]));
+
+      const updatedStudents = students.map((s) => {
+        const grad = gradMap.get(s.id);
+        if (!grad) return s;
+
+        return {
+          ...s,
+          status: 'Lulus' as const,
+          tanggalLulus: grad.tanggalLulus,
+          melanjutkanKe: grad.melanjutkanKe,
+          noIjazahSmp: grad.noIjazahSmp || s.noIjazahSmp || '',
+          alasanKeluar: `Lulus Resmi SMP (Melanjutkan ke ${grad.melanjutkanKe})`,
+          tanggalKeluar: grad.tanggalLulus,
+        };
+      });
+
+      setStudents(updatedStudents);
+      saveStudents(updatedStudents);
+
+      // Save each graduated student to Firestore
+      for (const grad of graduations) {
+        const target = updatedStudents.find((s) => s.id === grad.studentId);
+        if (target) {
+          await saveStudentToFirestore(target);
+        }
+      }
+
+      setIsCloudConnected(true);
+      setLastSyncTime(new Date().toLocaleTimeString('id-ID'));
+      setToastMessage({
+        type: 'success',
+        title: 'Kelulusan Siswa Berhasil',
+        message: `Sebanyak ${graduations.length} siswa kelas 9 berhasil diluluskan dan masuk dalam daftar register Alumni.`,
+      });
+    } catch (err: any) {
+      console.error('Error graduating students:', err);
+      setToastMessage({
+        type: 'error',
+        title: 'Gagal Memproses Kelulusan',
+        message: `Terjadi kendala saat memproses kelulusan: ${err?.message || err}`,
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Mutation Masuk Handler
+  const handleSaveMutationMasuk = async (newStudent: Student) => {
+    await handleSaveStudent(newStudent);
+    setToastMessage({
+      type: 'success',
+      title: 'Siswa Mutasi Masuk Terdaftar',
+      message: `Data siswa mutasi masuk ${newStudent.namaLengkap} berhasil ditambahkan ke register buku induk.`,
+    });
+  };
+
+  // Mutation Keluar Handler
+  const handleSaveMutationKeluar = async (
+    studentId: string,
+    mutationData: {
+      tanggalMutasi: string;
+      pindahKeSekolah: string;
+      alasanMutasi: string;
+    }
+  ) => {
+    const target = students.find((s) => s.id === studentId);
+    if (!target) return;
+
+    const updatedStudent: Student = {
+      ...target,
+      status: 'Mutasi Keluar',
+      tanggalKeluar: mutationData.tanggalMutasi,
+      pindahKeSekolah: mutationData.pindahKeSekolah,
+      alasanKeluar: mutationData.alasanMutasi,
+    };
+
+    await handleSaveStudent(updatedStudent);
+    setToastMessage({
+      type: 'success',
+      title: 'Siswa Mutasi Keluar Dicatat',
+      message: `Status siswa ${target.namaLengkap} telah diubah menjadi Mutasi Keluar ke ${mutationData.pindahKeSekolah}.`,
+    });
+  };
+
   // Navigation handlers
   const handleOpenNewStudent = () => {
     setEditingStudent(null);
@@ -484,6 +716,7 @@ export default function App() {
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
               currentUser={currentUser}
+              schoolProfile={schoolProfile}
               onSelectStudent={(s) => setViewingStudent(s)}
               onEditStudent={handleEditStudent}
               onEditScores={(s, sem) => handleOpenEditScores(s, sem || 1)}
@@ -493,6 +726,11 @@ export default function App() {
               onPrintMasterSheet={handlePrintMasterSheet}
               onPrintCard={handlePrintCard}
               onAnalyzeAi={handleAnalyzeAi}
+              onImportStudents={handleBulkImportStudents}
+              onPromoteStudents={handlePromoteStudents}
+              onGraduateStudents={handleGraduateStudents}
+              onSaveMutationMasuk={handleSaveMutationMasuk}
+              onSaveMutationKeluar={handleSaveMutationKeluar}
             />
           )}
 
@@ -520,8 +758,10 @@ export default function App() {
             <LegerScoreView
               students={students}
               schoolProfile={schoolProfile}
+              currentUser={currentUser}
               onSelectStudent={(s) => setViewingStudent(s)}
               onEditScores={(s, sem) => handleOpenEditScores(s, sem)}
+              onImportScores={handleBulkImportScores}
             />
           )}
 

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Student, SchoolProfile } from '../types';
 import { formatDateIndonesian } from '../utils/formatters';
+import { getStudentPhoto } from '../utils/studentPhotos';
 import { PrintGuideBanner } from './PrintGuideBanner';
 import { DEFAULT_LOGO_BANTUL, DEFAULT_LOGO_TUTWURI } from '../utils/defaultLogos';
 
@@ -36,7 +37,7 @@ export const StudentCardView: React.FC<StudentCardViewProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [cardPrintMode, setCardPrintMode] = useState<'single' | 'grid_sheet'>('single');
 
-  // Available classes sorted naturally (7A-9H)
+  // Available classes sorted naturally (7A-9D)
   const classesList = useMemo(() => {
     const set = new Set<string>();
     students.forEach((s) => {
@@ -166,10 +167,10 @@ export const StudentCardView: React.FC<StudentCardViewProps> = ({
         </div>
         <div className="min-w-0 flex-1">
           <h4 className="text-[8px] uppercase font-bold tracking-wider text-blue-200 truncate">
-            Pemerintah Kab. {schoolProfile.kabupaten || 'Bantul'} • Dikpora
+            Pemerintah Kab. {schoolProfile.kabupaten} • Dikpora
           </h4>
           <h3 className="text-[11px] font-black tracking-wide text-white uppercase truncate">
-            {schoolProfile.namaSekolah || 'SMP NEGERI 2 KASIHAN'}
+            {schoolProfile.namaSekolah}
           </h3>
           <p className="text-[7.5px] text-blue-100/80 font-medium">
             KARTU TANDA PELAJAR • TP {schoolProfile.tahunAjaranAktif}
@@ -192,18 +193,15 @@ export const StudentCardView: React.FC<StudentCardViewProps> = ({
       <div className="flex items-center gap-3 my-0.5 relative z-10">
         {/* Student Photo */}
         <div className="w-16 h-20 rounded border border-blue-400/80 shadow-xs bg-slate-800 shrink-0 overflow-hidden flex items-center justify-center">
-          {s.fotoUrl ? (
-            <img
-              src={s.fotoUrl}
-              alt={s.namaLengkap}
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-          ) : (
-            <div className="text-[8px] text-slate-400 text-center font-sans">
-              Foto<br />3x4
-            </div>
-          )}
+          <img
+            src={getStudentPhoto(s)}
+            alt={s.namaLengkap}
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = getStudentPhoto(s);
+            }}
+          />
         </div>
 
         {/* Student Bio */}
@@ -232,7 +230,7 @@ export const StudentCardView: React.FC<StudentCardViewProps> = ({
           <div className="font-mono text-[8px] tracking-wider bg-white text-slate-900 px-1.5 py-0.2 rounded font-bold">
             ||| |||| || {s.nisn} ||
           </div>
-          <span className="text-[6.5px] text-blue-300">Siswa Aktif SMPN 2 Kasihan</span>
+          <span className="text-[6.5px] text-blue-300">Siswa Aktif {schoolProfile.namaSekolah}</span>
         </div>
 
         <div className="text-right">
@@ -253,7 +251,7 @@ export const StudentCardView: React.FC<StudentCardViewProps> = ({
           <h4 className="text-[10px] font-bold text-slate-900 uppercase">
             TATA TERTIB KARTU PELAJAR
           </h4>
-          <p className="text-[7.5px] text-slate-500">{schoolProfile.namaSekolah} Bantul</p>
+          <p className="text-[7.5px] text-slate-500">{schoolProfile.namaSekolah} {schoolProfile.kabupaten}</p>
         </div>
 
         <ol className="list-decimal list-inside text-[8px] text-slate-700 space-y-0.5 leading-tight">
@@ -269,7 +267,7 @@ export const StudentCardView: React.FC<StudentCardViewProps> = ({
         <div className="max-w-[240px]">
           <strong className="block text-slate-900 font-bold text-[8px]">{schoolProfile.namaSekolah}</strong>
           <span className="truncate block">{schoolProfile.alamat}, {schoolProfile.kecamatan}, {schoolProfile.kabupaten}</span>
-          <span className="block">Telp: {schoolProfile.noTelepon}</span>
+          <span className="block">Telp: {schoolProfile.noTelepon || schoolProfile.telepon || '-'}</span>
         </div>
 
         <div className="w-10 h-10 bg-slate-50 rounded border border-slate-300 flex flex-col items-center justify-center p-0.5 shrink-0">

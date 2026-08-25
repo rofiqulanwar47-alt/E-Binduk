@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Student, SchoolProfile, Religion, BloodType, Gender, AdmissionTrack, StudentStatus } from '../types';
 import { calculateAge } from '../utils/formatters';
+import { getDefaultStudentPhoto, getStudentPhotoGallery } from '../utils/studentPhotos';
 
 interface StudentFormModalProps {
   initialStudent: Student | null; // null = new student
@@ -453,8 +454,20 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                 <label className="font-semibold text-slate-700 block mb-1">Jenis Kelamin</label>
                 <select
                   value={formData.jenisKelamin}
-                  onChange={(e) => setFormData({ ...formData, jenisKelamin: e.target.value as Gender })}
-                  className="w-full p-2 border border-slate-300 rounded-lg bg-white"
+                  onChange={(e) => {
+                    const newJk = e.target.value as Gender;
+                    const isUsingDefault =
+                      !formData.fotoUrl ||
+                      formData.fotoUrl.includes('images.unsplash.com');
+                    setFormData((prev) => ({
+                      ...prev,
+                      jenisKelamin: newJk,
+                      fotoUrl: isUsingDefault
+                        ? getDefaultStudentPhoto(newJk, prev.namaLengkap || prev.nisn || prev.noUrutInduk)
+                        : prev.fotoUrl,
+                    }));
+                  }}
+                  className="w-full p-2 border border-slate-300 rounded-lg bg-white font-medium"
                 >
                   <option value="L">Laki-laki (L)</option>
                   <option value="P">Perempuan (P)</option>
@@ -543,31 +556,80 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                 />
               </div>
 
-              {/* Foto Siswa: URL & Upload File Langsung */}
+              {/* Foto Siswa: URL, Dummy Generator & Upload File */}
               <div className="sm:col-span-2 space-y-2">
-                <label className="font-semibold text-slate-700 block mb-1">
-                  Pas Foto Resmi Siswa (3x4)
-                </label>
-                <div className="flex items-center gap-3">
-                  <div className="w-14 h-18 rounded-lg border border-slate-300 bg-white p-1 shadow-xs shrink-0 flex items-center justify-center overflow-hidden">
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-slate-700 block text-xs">
+                    Pas Foto Siswa (3x4 Standar)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const dummy = getDefaultStudentPhoto(
+                        formData.jenisKelamin || 'L',
+                        Date.now()
+                      );
+                      setFormData({ ...formData, fotoUrl: dummy });
+                    }}
+                    className="text-[11px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Sparkles className="w-3 h-3 text-blue-500" />
+                    <span>Ganti Pas Foto Dummy ({formData.jenisKelamin === 'P' ? 'Perempuan' : 'Laki-laki'})</span>
+                  </button>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="w-16 h-20 rounded-lg border-2 border-slate-300 bg-slate-100 p-0.5 shadow-xs shrink-0 flex items-center justify-center overflow-hidden relative group">
                     <img
-                      src={formData.fotoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'}
-                      alt="Pas Foto"
+                      src={
+                        formData.fotoUrl ||
+                        getDefaultStudentPhoto(
+                          formData.jenisKelamin || 'L',
+                          formData.namaLengkap || formData.nisn
+                        )
+                      }
+                      alt="Pas Foto Siswa"
                       className="w-full h-full object-cover rounded"
                     />
                   </div>
-                  <div className="flex-1 space-y-1.5">
+
+                  <div className="flex-1 space-y-2">
                     <input
                       type="text"
                       value={formData.fotoUrl || ''}
                       onChange={(e) => setFormData({ ...formData, fotoUrl: e.target.value })}
-                      placeholder="https://... atau pilih berkas foto dari komputer"
+                      placeholder="https://... atau pilih pas foto dummy / upload berkas"
                       className="w-full p-2 border border-slate-300 rounded-lg bg-white text-xs font-mono"
                     />
-                    <div className="flex items-center gap-2">
+
+                    {/* Quick Preset Dummy Avatars */}
+                    <div className="space-y-1">
+                      <div className="text-[10px] text-slate-500 font-medium">
+                        Pilihan Pas Foto Standar ({formData.jenisKelamin === 'P' ? 'Siswa Perempuan' : 'Siswa Laki-laki'}):
+                      </div>
+                      <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                        {getStudentPhotoGallery(formData.jenisKelamin || 'L').map((url, pIdx) => (
+                          <button
+                            key={pIdx}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, fotoUrl: url })}
+                            className={`w-8 h-10 rounded border-2 overflow-hidden shrink-0 transition cursor-pointer ${
+                              formData.fotoUrl === url
+                                ? 'border-blue-600 ring-2 ring-blue-300'
+                                : 'border-slate-300 hover:border-blue-400 opacity-70 hover:opacity-100'
+                            }`}
+                            title={`Pilih Pas Foto Dummy ${pIdx + 1}`}
+                          >
+                            <img src={url} alt={`Dummy ${pIdx + 1}`} className="w-full h-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-0.5">
                       <label className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-md border border-slate-300 cursor-pointer transition text-[11px] inline-flex items-center gap-1">
                         <ImageIcon className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Upload Berkas Foto (.jpg / .png)</span>
+                        <span>Upload Berkas Foto Sendiri (.jpg / .png)</span>
                         <input
                           type="file"
                           accept="image/*"

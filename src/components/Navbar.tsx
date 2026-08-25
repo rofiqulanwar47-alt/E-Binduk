@@ -142,18 +142,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                 E-BINDUK
               </span>
               <span className="text-slate-400 text-[11px] font-semibold mt-0.5 tracking-wider truncate uppercase">
-                {schoolProfile.namaSekolah || 'SMP N 2 KASIHAN'}
+                {schoolProfile.namaSekolah}
               </span>
             </div>
           </div>
         </div>
 
-        {/* User Role Card & Login Switcher in Sidebar */}
+        {/* User Role Card in Sidebar */}
         <div className="p-3">
-          <div
-            onClick={onOpenLoginModal}
-            className="p-3 bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 rounded-xl cursor-pointer transition-all hover:border-blue-500/50 group"
-          >
+          <div className="p-3 bg-slate-800/90 border border-slate-700/80 rounded-xl">
             <div className="flex items-center gap-2.5">
               <div className="relative shrink-0">
                 <img
@@ -167,12 +164,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-slate-900"></span>
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-slate-100 font-bold text-xs truncate group-hover:text-blue-300 transition-colors">
-                    {currentUser.name}
-                  </span>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-white shrink-0" />
-                </div>
+                <span className="text-slate-100 font-bold text-xs truncate block">
+                  {currentUser.name}
+                </span>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span
                     className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md border ${getRoleBadgeStyle(
@@ -189,9 +183,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="mt-2 pt-2 border-t border-slate-700/60 flex items-center justify-between text-[10px] text-slate-400">
               <span className="flex items-center gap-1">
                 <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                <span>RBAC Aktif</span>
+                <span>Sesi Resmi</span>
               </span>
-              <span className="text-blue-400 font-semibold group-hover:underline">Ganti Hak Akses</span>
+              <span className="text-emerald-400 font-medium">Aktif</span>
             </div>
           </div>
         </div>
@@ -287,30 +281,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           })}
         </nav>
 
-        {/* User / School Profile Bottom Footer */}
-        <div className="p-3 border-t border-slate-800 bg-slate-950/40 space-y-2">
-          <div
-            onClick={onOpenLoginModal}
-            className="flex items-center justify-between px-2.5 py-1.5 rounded-lg hover:bg-slate-900 cursor-pointer transition-colors text-xs"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <KeyRound className="w-4 h-4 text-blue-400 shrink-0" />
-              <div className="flex flex-col min-w-0">
-                <span className="text-slate-300 text-[11px] font-bold truncate">Ganti Pengguna</span>
-                <span className="text-slate-500 text-[10px] truncate">
-                  {currentUser.roleLabel}
-                </span>
-              </div>
-            </div>
-            <span className="text-[10px] font-semibold text-blue-400 bg-blue-950/60 border border-blue-800/50 px-2 py-0.5 rounded-md">
-              Ubah
-            </span>
-          </div>
-
+        {/* Sidebar Bottom Footer: Clean Logout Button */}
+        <div className="p-3 border-t border-slate-800 bg-slate-950/40">
           <button
             type="button"
             onClick={onLogout}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 border border-rose-800/40 rounded-lg text-xs font-semibold transition-all"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/40 rounded-lg text-xs font-semibold transition-all cursor-pointer"
             title="Keluar dari sesi E-Binduk dan kunci akses"
           >
             <LogOut className="w-3.5 h-3.5" />
@@ -319,172 +295,50 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </aside>
 
-      {/* Top Header Bar for Desktop and Mobile */}
-      <header className="lg:pl-64 bg-white border-b border-slate-200 sticky top-0 z-20 shadow-xs print:hidden">
-        <div className="h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+      {/* Mobile Top Header (Only visible on small screens < lg) */}
+      <header className="lg:hidden bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-20 print:hidden">
+        <div className="h-14 px-4 flex items-center justify-between gap-3">
           {/* Mobile Menu Toggle & Brand */}
-          <div className="flex items-center gap-3 lg:hidden">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200"
+              className="p-1.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white border border-slate-700 cursor-pointer"
               aria-label="Toggle menu"
             >
               {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center font-bold text-white text-sm">
+              <div className="w-7 h-7 bg-blue-600 rounded flex items-center justify-center font-bold text-white text-xs">
                 B
               </div>
-              <span className="font-bold text-slate-900 text-sm">E-BINDUK</span>
-            </div>
-          </div>
-
-          {/* Desktop Section Title */}
-          <div className="hidden lg:flex items-center gap-2">
-            <h1 className="text-lg font-bold text-slate-800 uppercase tracking-tight">
-              {activeTab === 'dashboard' && 'Dashboard Buku Induk'}
-              {activeTab === 'buku-induk' && 'Master Data Buku Induk Siswa'}
-              {activeTab === 'cetak-lembar' && 'Cetak Lembar Buku Induk Resmi'}
-              {activeTab === 'kartu-pelajar' && 'Kartu Tanda Pelajar (KTP-S)'}
-              {activeTab === 'leger' && 'Rekapitulasi Leger Nilai'}
-              {activeTab === 'ai-asisten' && 'AI Asisten & Analitik Siswa'}
-              {activeTab === 'pengaturan' && 'Pengaturan & Hak Akses Cloud'}
-            </h1>
-            <span className="text-slate-300">|</span>
-            <span className="text-xs text-slate-500 font-medium">
-              SMP Negeri 2 Kasihan • Bantul
-            </span>
-          </div>
-
-          {/* Right Action Bar */}
-          <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-            {/* Active User Pill Button */}
-            <button
-              type="button"
-              onClick={onOpenLoginModal}
-              className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 transition-all text-xs text-slate-700 shadow-xs"
-              title="Klik untuk membuka Pengaturan Hak Akses / Ganti Pengguna"
-            >
-              <img
-                src={
-                  currentUser.avatarUrl ||
-                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200'
-                }
-                alt={currentUser.name}
-                className="w-6 h-6 rounded-full object-cover ring-1 ring-blue-500/40"
-              />
-              <div className="hidden md:flex flex-col text-left leading-tight">
-                <span className="font-bold text-slate-800 text-[11px] truncate max-w-[130px]">
-                  {currentUser.name}
-                </span>
-                <span className="text-[10px] text-slate-500 truncate">
-                  {currentUser.roleLabel}
-                </span>
+              <div className="flex flex-col">
+                <span className="font-bold text-white text-xs leading-tight">E-BINDUK</span>
+                <span className="text-[9px] text-slate-400 font-medium truncate max-w-[160px]">{schoolProfile.namaSekolah}</span>
               </div>
-              <KeyRound className="w-3.5 h-3.5 text-blue-600 ml-0.5" />
-            </button>
+            </div>
+          </div>
 
-            {/* Cloud Sync Status Badge */}
-            <div
-              className={`hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-semibold border ${
-                isSyncing
-                  ? 'bg-amber-50 text-amber-700 border-amber-200'
-                  : isCloudConnected
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                  : 'bg-slate-100 text-slate-600 border-slate-200'
+          {/* Right Mobile Status & Quick Logout */}
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isSyncing ? 'bg-amber-400 animate-ping' : isCloudConnected ? 'bg-emerald-400' : 'bg-slate-500'
               }`}
-              title="Status sinkronisasi database Firebase Firestore"
-            >
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  isSyncing
-                    ? 'bg-amber-500 animate-ping'
-                    : isCloudConnected
-                    ? 'bg-emerald-500'
-                    : 'bg-slate-400'
-                }`}
-              />
-              <span className="text-[11px]">
-                {isSyncing ? 'Menyinkronkan...' : isCloudConnected ? 'Firebase Aktif' : 'Lokal Saja'}
-              </span>
-            </div>
-
-            {/* Search Input */}
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                <Search className="w-4 h-4" />
-              </span>
-              <input
-                type="text"
-                placeholder="Cari NISN atau Nama..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  if (activeTab !== 'buku-induk' && e.target.value) {
-                    setActiveTab('buku-induk');
-                  }
-                }}
-                className="pl-9 pr-4 py-1.5 sm:py-2 border border-slate-200 rounded-lg text-xs sm:text-sm w-36 sm:w-52 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors bg-white"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-700"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
-            {/* Quick Export Button (if permitted) */}
-            {currentUser.permissions.canExportData && (
-              <button
-                onClick={() => exportStudentsToCsv(students)}
-                title="Export Semua Data ke CSV/Excel"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-white border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-xs"
-              >
-                <Download className="w-3.5 h-3.5 text-blue-600" />
-                <span>Export CSV</span>
-              </button>
-            )}
-
-            {/* Quick AI Assistant Button */}
-            {currentUser.permissions.canAccessAiAssistant && (
-              <button
-                onClick={onOpenAiChat}
-                className="hidden md:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors shadow-xs"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                <span>AI Asisten</span>
-              </button>
-            )}
-
-            {/* Logout Header Button */}
+              title={isCloudConnected ? 'Firebase Aktif' : 'Offline'}
+            />
             <button
               onClick={onLogout}
-              title="Keluar (Logout) dari sistem E-Binduk"
-              className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 rounded-lg transition-colors shadow-xs"
+              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded-lg border border-slate-800 transition"
+              title="Keluar"
             >
               <LogOut className="w-4 h-4" />
             </button>
-
-            {/* Primary Add Student Action Button */}
-            {currentUser.permissions.canCreateStudent && (
-              <button
-                onClick={onOpenNewStudent}
-                className="bg-blue-600 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold hover:bg-blue-700 transition-colors shadow-xs inline-flex items-center gap-1.5 shrink-0"
-              >
-                <UserPlus className="w-4 h-4" />
-                <span className="hidden sm:inline">Tambah Data</span>
-                <span className="sm:hidden">Tambah</span>
-              </button>
-            )}
           </div>
         </div>
 
         {/* Mobile Navigation Drawer */}
         {isMobileMenuOpen && (
-          <div className="lg:hidden bg-slate-900 text-white border-t border-slate-800 px-4 py-3 space-y-2">
+          <div className="bg-slate-900 text-white border-t border-slate-800 px-4 py-3 space-y-2">
             <div className="p-3 bg-slate-800 rounded-xl flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
                 <img
@@ -500,26 +354,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <div className="text-[10px] text-blue-400">{currentUser.roleLabel}</div>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => {
-                    onOpenLoginModal();
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className="text-[10px] bg-blue-600 text-white px-2 py-1 rounded-md font-semibold"
-                >
-                  Ganti
-                </button>
-                <button
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
-                    onLogout();
-                  }}
-                  className="text-[10px] bg-rose-600 hover:bg-rose-700 text-white px-2 py-1 rounded-md font-semibold"
-                >
-                  Keluar
-                </button>
-              </div>
+              <span className="text-[10px] font-medium text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded-full">
+                Sesi Aktif
+              </span>
             </div>
 
             {navItems.map((item) => {
@@ -533,9 +370,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   onClick={() => {
                     if (isAllowed) {
                       setActiveTab(item.id);
-                      setIsMobileMenuOpen(false);
-                    } else {
-                      onOpenLoginModal();
                       setIsMobileMenuOpen(false);
                     }
                   }}

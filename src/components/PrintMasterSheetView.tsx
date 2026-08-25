@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Student, SchoolProfile } from '../types';
 import { formatDateIndonesian, calculateAge } from '../utils/formatters';
+import { getStudentPhoto } from '../utils/studentPhotos';
 import { OfficialKopSurat } from './OfficialKopSurat';
 
 interface PrintMasterSheetViewProps {
@@ -38,7 +39,7 @@ export const PrintMasterSheetView: React.FC<PrintMasterSheetViewProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [printMode, setPrintMode] = useState<PrintMode>('full');
 
-  // Available classes sorted naturally (7A-9H)
+  // Available classes sorted naturally (7A-9D)
   const classesList = useMemo(() => {
     const set = new Set<string>();
     students.forEach((s) => {
@@ -175,19 +176,16 @@ export const PrintMasterSheetView: React.FC<PrintMasterSheetViewProps> = ({
 
             {/* FOTO & IDENTITAS UTAMA */}
             <div className="flex items-start gap-4 mb-3">
-              <div className="w-24 sm:w-28 h-32 sm:h-36 border-2 border-slate-800 flex flex-col items-center justify-center bg-slate-50 p-1 text-center shrink-0">
-                {st.fotoUrl ? (
-                  <img
-                    src={st.fotoUrl}
-                    alt={st.namaLengkap}
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <div className="text-[10px] font-sans text-slate-400 leading-tight">
-                    Pas Foto<br />3 x 4 cm
-                  </div>
-                )}
+              <div className="w-24 sm:w-28 h-32 sm:h-36 border-2 border-slate-800 flex flex-col items-center justify-center bg-slate-50 p-0.5 text-center shrink-0 overflow-hidden">
+                <img
+                  src={getStudentPhoto(st)}
+                  alt={st.namaLengkap}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = getStudentPhoto(st);
+                  }}
+                />
               </div>
 
               <div className="flex-1 text-xs font-sans">
@@ -362,10 +360,10 @@ export const PrintMasterSheetView: React.FC<PrintMasterSheetViewProps> = ({
               </div>
             </div>
 
-            {/* SECTION E: PENERIMAAN DI SMPN 2 KASIHAN */}
+            {/* SECTION E: PENERIMAAN DI SEKOLAH */}
             <div className="mb-4 font-sans text-xs">
               <div className="bg-slate-100 px-2 py-0.5 font-bold border-y border-slate-300 uppercase text-[11px]">
-                E. PENERIMAAN PESERTA DIDIK DI SMP NEGERI 2 KASIHAN
+                E. PENERIMAAN PESERTA DIDIK DI {schoolProfile.namaSekolah}
               </div>
               <table className="w-full mt-1 border-collapse text-xs">
                 <tbody>
@@ -390,7 +388,7 @@ export const PrintMasterSheetView: React.FC<PrintMasterSheetViewProps> = ({
                     <td className="whitespace-nowrap py-0.5 text-slate-700 font-medium align-top">24. Bantuan Sosial Pendidikan</td>
                     <td className="py-0.5 text-center font-bold align-top">:</td>
                     <td className="py-0.5 font-medium align-top">
-                      {st.kesejahteraan?.penerimaKip ? 'Penerima KIP/PIP' : 'Bukan KIP'} • {st.kesejahteraan?.penerimaKmsBantul ? 'Penerima KMS Bantul' : 'Non-KMS'} • Layak PIP: {st.kesejahteraan?.layakPip ? 'Ya' : 'Tidak'}
+                      {st.kesejahteraan?.penerimaKip ? 'Penerima KIP/PIP' : 'Bukan KIP'} • {st.kesejahteraan?.penerimaKmsBantul ? 'Penerima KMS' : 'Non-KMS'} • Layak PIP: {st.kesejahteraan?.layakPip ? 'Ya' : 'Tidak'}
                     </td>
                   </tr>
                 </tbody>
@@ -409,23 +407,23 @@ export const PrintMasterSheetView: React.FC<PrintMasterSheetViewProps> = ({
                 </div>
 
                 <div className="w-52">
-                  <p>Kasihan, {formatDateIndonesian(new Date().toISOString())}</p>
+                  <p>{schoolProfile.kecamatan || 'Kasihan'}, {formatDateIndonesian(new Date().toISOString())}</p>
                   <p className="font-semibold">Pengelola Buku Induk (TU)</p>
                   <div className="h-14 flex items-end justify-center">
                     <div>
-                      <p className="font-bold underline">{schoolProfile.pengelolaBukuInduk || 'Drs. Tri Wahyono'}</p>
-                      <p className="text-[10px] text-slate-600">NIP. {schoolProfile.nipPengelolaBukuInduk || '197904122005011003'}</p>
+                      <p className="font-bold underline">{schoolProfile.pengelolaBukuInduk || '-'}</p>
+                      <p className="text-[10px] text-slate-600">NIP. {schoolProfile.nipPengelolaBukuInduk || '-'}</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="w-52">
-                  <p>Kasihan, {formatDateIndonesian(new Date().toISOString())}</p>
-                  <p className="font-semibold">Kepala {schoolProfile.namaSekolah || 'SMP N 2 Kasihan'}</p>
+                  <p>{schoolProfile.kecamatan || 'Kasihan'}, {formatDateIndonesian(new Date().toISOString())}</p>
+                  <p className="font-semibold">Kepala {schoolProfile.namaSekolah}</p>
                   <div className="h-14 flex items-end justify-center">
                     <div>
-                      <p className="font-bold underline">{schoolProfile.kepalaSekolah || 'Drs. H. Sugeng Riyadi, M.Pd.'}</p>
-                      <p className="text-[10px] text-slate-600">NIP. {schoolProfile.nipKepalaSekolah || '196803151994121002'}</p>
+                      <p className="font-bold underline">{schoolProfile.kepalaSekolah || '-'}</p>
+                      <p className="text-[10px] text-slate-600">NIP. {schoolProfile.nipKepalaSekolah || '-'}</p>
                     </div>
                   </div>
                 </div>
@@ -433,7 +431,7 @@ export const PrintMasterSheetView: React.FC<PrintMasterSheetViewProps> = ({
             </div>
 
             <div className="mt-4 pt-1 border-t border-slate-300 flex items-center justify-between text-[9px] text-slate-400 font-sans">
-              <span>Lembar 1 Buku Induk Siswa • {schoolProfile.namaSekolah} Bantul</span>
+              <span>Lembar 1 Buku Induk Siswa • {schoolProfile.namaSekolah} {schoolProfile.kabupaten}</span>
               <span>Dokumen Negara • Standar Kemendikbudristek RI</span>
             </div>
           </div>
@@ -612,12 +610,12 @@ export const PrintMasterSheetView: React.FC<PrintMasterSheetViewProps> = ({
                 </div>
 
                 <div className="w-60">
-                  <p>Kasihan, {formatDateIndonesian(new Date().toISOString())}</p>
-                  <p className="font-semibold">Kepala {schoolProfile.namaSekolah || 'SMP N 2 Kasihan'}</p>
+                  <p>{schoolProfile.kecamatan || 'Kasihan'}, {formatDateIndonesian(new Date().toISOString())}</p>
+                  <p className="font-semibold">Kepala {schoolProfile.namaSekolah}</p>
                   <div className="h-16 flex items-end justify-center">
                     <div>
-                      <p className="font-bold underline">{schoolProfile.kepalaSekolah || 'Drs. H. Sugeng Riyadi, M.Pd.'}</p>
-                      <p className="text-[10px] text-slate-600">NIP. {schoolProfile.nipKepalaSekolah || '196803151994121002'}</p>
+                      <p className="font-bold underline">{schoolProfile.kepalaSekolah || '-'}</p>
+                      <p className="text-[10px] text-slate-600">NIP. {schoolProfile.nipKepalaSekolah || '-'}</p>
                     </div>
                   </div>
                 </div>
@@ -625,7 +623,7 @@ export const PrintMasterSheetView: React.FC<PrintMasterSheetViewProps> = ({
             </div>
 
             <div className="mt-4 pt-1 border-t border-slate-300 flex items-center justify-between text-[9px] text-slate-400 font-sans">
-              <span>Lembar 2 Buku Induk Siswa • {schoolProfile.namaSekolah} Bantul</span>
+              <span>Lembar 2 Buku Induk Siswa • {schoolProfile.namaSekolah} {schoolProfile.kabupaten}</span>
               <span>Dokumen Arsip Abadi Pendidikan Nasional</span>
             </div>
           </div>

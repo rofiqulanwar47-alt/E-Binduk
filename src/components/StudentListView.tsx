@@ -24,15 +24,28 @@ import {
   ChevronsRight,
   SortAsc,
   Calculator,
+  GraduationCap,
+  TrendingUp,
+  ArrowRightLeft,
+  UserCheck,
+  UserMinus,
+  School,
+  Layers,
 } from 'lucide-react';
-import { Student, UserAccount } from '../types';
+import { Student, UserAccount, SchoolProfile } from '../types';
 import { calculateAge, exportStudentsToCsv, formatDateIndonesian } from '../utils/formatters';
+import { getStudentPhoto } from '../utils/studentPhotos';
+import { ImportStudentExcelModal } from './ImportStudentExcelModal';
+import { ClassPromotionModal } from './ClassPromotionModal';
+import { GraduationModal } from './GraduationModal';
+import { MutationModal } from './MutationModal';
 
 interface StudentListViewProps {
   students: Student[];
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   currentUser?: UserAccount;
+  schoolProfile?: SchoolProfile;
   onSelectStudent: (student: Student) => void;
   onEditStudent: (student: Student) => void;
   onEditScores?: (student: Student, semester?: number) => void;
@@ -42,6 +55,27 @@ interface StudentListViewProps {
   onPrintMasterSheet: (student: Student) => void;
   onPrintCard: (student: Student) => void;
   onAnalyzeAi: (student: Student) => void;
+  onImportStudents?: (importedStudents: Student[], mode: 'append' | 'replace') => void;
+  onPromoteStudents?: (
+    promotions: { studentId: string; targetClass: string; newAcademicYear: string }[]
+  ) => Promise<void> | void;
+  onGraduateStudents?: (
+    graduations: {
+      studentId: string;
+      tanggalLulus: string;
+      melanjutkanKe: string;
+      noIjazahSmp?: string;
+    }[]
+  ) => Promise<void> | void;
+  onSaveMutationMasuk?: (student: Student) => Promise<void> | void;
+  onSaveMutationKeluar?: (
+    studentId: string,
+    mutationData: {
+      tanggalMutasi: string;
+      pindahKeSekolah: string;
+      alasanMutasi: string;
+    }
+  ) => Promise<void> | void;
 }
 
 export const StudentListView: React.FC<StudentListViewProps> = ({
@@ -49,6 +83,26 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
   searchQuery,
   setSearchQuery,
   currentUser,
+  schoolProfile = {
+    namaSekolah: 'SMP NEGERI 2 KASIHAN',
+    npsn: '20400331',
+    nss: '201040103001',
+    alamatLengkap: 'Jl. Bibis, Kasihan, Bantul, D.I. Yogyakarta 55184',
+    kelurahan: 'Bangunjiwo',
+    kecamatan: 'Kasihan',
+    kabupatenKota: 'Kabupaten Bantul',
+    provinsi: 'D.I. Yogyakarta',
+    kodePos: '55184',
+    telepon: '(0274) 412345',
+    email: 'smpn2kasihan@bantulkab.go.id',
+    website: 'https://smpn2kasihan.sch.id',
+    kepalaSekolah: 'Drs. H. Wardiyanto, M.Pd.',
+    nipKepalaSekolah: '19680512 199412 1 002',
+    tahunAjaranAktif: '2024/2025',
+    semesterAktif: 1,
+    akreditasi: 'A',
+    logoUrl: 'https://images.unsplash.com/photo-1594608661623-aa0bd3a69d98?auto=format&fit=crop&q=80&w=200',
+  },
   onSelectStudent,
   onEditStudent,
   onEditScores,
@@ -58,6 +112,11 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
   onPrintMasterSheet,
   onPrintCard,
   onAnalyzeAi,
+  onImportStudents,
+  onPromoteStudents,
+  onGraduateStudents,
+  onSaveMutationMasuk,
+  onSaveMutationKeluar,
 }) => {
   const [selectedClass, setSelectedClass] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -75,16 +134,52 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
 
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
+
+  // New Modals State
+  const [isPromotionModalOpen, setIsPromotionModalOpen] = useState<boolean>(false);
+  const [isGraduationModalOpen, setIsGraduationModalOpen] = useState<boolean>(false);
+  const [isMutationModalOpen, setIsMutationModalOpen] = useState<boolean>(false);
+  const [mutationModalMode, setMutationModalMode] = useState<'masuk' | 'keluar'>('masuk');
+  const [selectedStudentForMutation, setSelectedStudentForMutation] = useState<Student | null>(null);
+  const [selectedStudentsForPromotion, setSelectedStudentsForPromotion] = useState<Student[]>([]);
+  const [selectedStudentsForGraduation, setSelectedStudentsForGraduation] = useState<Student[]>([]);
 
   // Permission flags (default to true if currentUser not specified)
   const canCreateStudent = currentUser ? currentUser.permissions.canCreateStudent : true;
   const canEditStudent = currentUser ? currentUser.permissions.canEditStudent : true;
   const canDeleteStudent = currentUser ? currentUser.permissions.canDeleteStudent : true;
   const canExportData = currentUser ? currentUser.permissions.canExportData : true;
+  const canImportExcel = currentUser ? (currentUser.permissions.canImportExcel || currentUser.role === 'admin' || currentUser.role === 'petugas_tu') : true;
   const canPrintBukuInduk = currentUser ? currentUser.permissions.canPrintBukuInduk : true;
   const canPrintStudentCard = currentUser ? currentUser.permissions.canPrintStudentCard : true;
   const canEditScoresFlag = currentUser ? currentUser.permissions.canEditScores : true;
   const canAccessAi = currentUser ? currentUser.permissions.canAccessAiAssistant : true;
+
+  // Counts for pills
+  const counts = useMemo(() => {
+    let all = students.length;
+    let aktif = 0;
+    let k7 = 0;
+    let k8 = 0;
+    let k9 = 0;
+    let mutasiMasuk = 0;
+    let mutasiKeluar = 0;
+    let lulus = 0;
+
+    students.forEach((s) => {
+      if (s.status === 'Aktif') aktif++;
+      if (s.status === 'Mutasi Masuk') mutasiMasuk++;
+      if (s.status === 'Mutasi Keluar') mutasiKeluar++;
+      if (s.status === 'Lulus') lulus++;
+
+      if (s.kelasSekarang?.startsWith('7')) k7++;
+      else if (s.kelasSekarang?.startsWith('8')) k8++;
+      else if (s.kelasSekarang?.startsWith('9')) k9++;
+    });
+
+    return { all, aktif, k7, k8, k9, mutasiMasuk, mutasiKeluar, lulus };
+  }, [students]);
 
   // Unique list of classes
   const classesList = useMemo(() => {
@@ -104,6 +199,41 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
       return a.localeCompare(b);
     });
   }, [students]);
+
+  // Quick Open Modal Handlers
+  const handleOpenPromotionForSelection = (customList?: Student[]) => {
+    if (customList && customList.length > 0) {
+      setSelectedStudentsForPromotion(customList);
+    } else if (selectedIds.length > 0) {
+      const selected = students.filter(
+        (s) => selectedIds.includes(s.id) && (s.kelasSekarang?.startsWith('7') || s.kelasSekarang?.startsWith('8'))
+      );
+      setSelectedStudentsForPromotion(selected.length > 0 ? selected : []);
+    } else {
+      setSelectedStudentsForPromotion([]);
+    }
+    setIsPromotionModalOpen(true);
+  };
+
+  const handleOpenGraduationForSelection = (customList?: Student[]) => {
+    if (customList && customList.length > 0) {
+      setSelectedStudentsForGraduation(customList);
+    } else if (selectedIds.length > 0) {
+      const selected = students.filter(
+        (s) => selectedIds.includes(s.id) && s.kelasSekarang?.startsWith('9')
+      );
+      setSelectedStudentsForGraduation(selected.length > 0 ? selected : []);
+    } else {
+      setSelectedStudentsForGraduation([]);
+    }
+    setIsGraduationModalOpen(true);
+  };
+
+  const handleOpenMutation = (mode: 'masuk' | 'keluar', student?: Student) => {
+    setMutationModalMode(mode);
+    setSelectedStudentForMutation(student || null);
+    setIsMutationModalOpen(true);
+  };
 
   // Helper for natural class parsing
   const parseClassOrder = (cls: string) => {
@@ -311,7 +441,7 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
     <div className="space-y-4 pb-12">
       {/* Header Controls */}
       <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold text-slate-800 uppercase tracking-tight flex items-center gap-2">
               <span>Master Data Buku Induk Siswa</span>
@@ -320,12 +450,63 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
               </span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Daftar register buku induk resmi SMP Negeri 2 Kasihan Bantul (Urut Kelas 7A-9H & Abjad Nama)
+              Daftar register buku induk resmi SMP Negeri 2 Kasihan Bantul (Urut Kelas 7A-9D & Abjad Nama)
             </p>
           </div>
 
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-2">
+            {/* Naik Kelas Action Button */}
+            {canEditStudent && onPromoteStudents && (
+              <button
+                type="button"
+                onClick={() => handleOpenPromotionForSelection()}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white shadow-xs transition cursor-pointer"
+                title="Proses Kenaikan Kelas 7 dan 8 ke tingkat berikutnya untuk tahun ajaran baru"
+              >
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>Naik Kelas</span>
+              </button>
+            )}
+
+            {/* Luluskan Action Button */}
+            {canEditStudent && onGraduateStudents && (
+              <button
+                type="button"
+                onClick={() => handleOpenGraduationForSelection()}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-xs transition cursor-pointer"
+                title="Proses Kelulusan Siswa Kelas 9 dan masukkan ke data register Alumni resmi"
+              >
+                <GraduationCap className="w-3.5 h-3.5" />
+                <span>Luluskan (Alumni)</span>
+              </button>
+            )}
+
+            {/* Mutasi Siswa Action Button */}
+            {canEditStudent && (
+              <button
+                type="button"
+                onClick={() => handleOpenMutation('masuk')}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs transition cursor-pointer"
+                title="Pencatatan Siswa Mutasi Masuk atau Keluar"
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+                <span>Mutasi Siswa</span>
+              </button>
+            )}
+
+            {canImportExcel && (
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 transition shadow-xs cursor-pointer"
+                title="Impor data siswa baru atau perbarui dari file Excel"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-600 rotate-180" />
+                <span>Impor Excel</span>
+              </button>
+            )}
+
             {canExportData && (
               <button
                 onClick={() => exportStudentsToCsv(filteredAndSortedStudents)}
@@ -369,6 +550,183 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Quick Filter Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none border-t border-slate-100 pt-3">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedClass('all');
+              setSelectedStatus('all');
+            }}
+            className={`px-3 py-1.5 rounded-lg font-bold transition shrink-0 cursor-pointer ${
+              selectedClass === 'all' && selectedStatus === 'all'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+            }`}
+          >
+            Semua ({counts.all})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedClass('all');
+              setSelectedStatus('Aktif');
+            }}
+            className={`px-3 py-1.5 rounded-lg font-bold transition shrink-0 cursor-pointer ${
+              selectedStatus === 'Aktif' && selectedClass === 'all'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+            }`}
+          >
+            Aktif ({counts.aktif})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedClass('7');
+              setSelectedStatus('all');
+            }}
+            className={`px-3 py-1.5 rounded-lg font-bold transition shrink-0 cursor-pointer ${
+              selectedClass === '7'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+            }`}
+          >
+            Kelas 7 ({counts.k7})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedClass('8');
+              setSelectedStatus('all');
+            }}
+            className={`px-3 py-1.5 rounded-lg font-bold transition shrink-0 cursor-pointer ${
+              selectedClass === '8'
+                ? 'bg-teal-600 text-white shadow-xs'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+            }`}
+          >
+            Kelas 8 ({counts.k8})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedClass('9');
+              setSelectedStatus('all');
+            }}
+            className={`px-3 py-1.5 rounded-lg font-bold transition shrink-0 cursor-pointer ${
+              selectedClass === '9'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+            }`}
+          >
+            Kelas 9 ({counts.k9})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedClass('all');
+              setSelectedStatus('Mutasi Masuk');
+            }}
+            className={`px-3 py-1.5 rounded-lg font-bold transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              selectedStatus === 'Mutasi Masuk'
+                ? 'bg-emerald-700 text-white shadow-xs'
+                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+            }`}
+          >
+            <UserCheck className="w-3.5 h-3.5" />
+            <span>Mutasi Masuk ({counts.mutasiMasuk})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedClass('all');
+              setSelectedStatus('Mutasi Keluar');
+            }}
+            className={`px-3 py-1.5 rounded-lg font-bold transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              selectedStatus === 'Mutasi Keluar'
+                ? 'bg-amber-700 text-white shadow-xs'
+                : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+            }`}
+          >
+            <UserMinus className="w-3.5 h-3.5" />
+            <span>Mutasi Keluar ({counts.mutasiKeluar})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedClass('all');
+              setSelectedStatus('Lulus');
+            }}
+            className={`px-3 py-1.5 rounded-lg font-bold transition shrink-0 cursor-pointer flex items-center gap-1.5 ${
+              selectedStatus === 'Lulus'
+                ? 'bg-slate-800 text-white shadow-xs'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+            }`}
+          >
+            <GraduationCap className="w-3.5 h-3.5" />
+            <span>Alumni ({counts.lulus})</span>
+          </button>
+        </div>
+
+        {/* Contextual Action Banner */}
+        {selectedClass === '9' && canEditStudent && onGraduateStudents && (
+          <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 text-purple-950">
+              <GraduationCap className="w-4 h-4 text-purple-700 shrink-0" />
+              <span>
+                <strong>Menu Kelulusan Kelas 9:</strong> Memudahkan pengisian data saat ganti tahun pelajaran. Klik tombol kelulusan untuk memindahkan siswa kelas 9 ke daftar Alumni resmi.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleOpenGraduationForSelection()}
+              className="px-3.5 py-1.5 bg-purple-700 hover:bg-purple-800 text-white rounded-lg font-bold whitespace-nowrap shadow-xs cursor-pointer flex items-center gap-1 self-start sm:self-auto"
+            >
+              <GraduationCap className="w-3.5 h-3.5" />
+              <span>Luluskan Seluruh Kelas 9</span>
+            </button>
+          </div>
+        )}
+
+        {(selectedClass === '7' || selectedClass === '8') && canEditStudent && onPromoteStudents && (
+          <div className="p-3 bg-teal-50 border border-teal-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 text-teal-950">
+              <TrendingUp className="w-4 h-4 text-teal-700 shrink-0" />
+              <span>
+                <strong>Menu Kenaikan Kelas {selectedClass}:</strong> Melanjutkan siswa ke tingkat berikutnya ({selectedClass === '7' ? 'Kelas 7 ➔ Kelas 8' : 'Kelas 8 ➔ Kelas 9'}) secara otomatis dari data yang sudah ada.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleOpenPromotionForSelection()}
+              className="px-3.5 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg font-bold whitespace-nowrap shadow-xs cursor-pointer flex items-center gap-1 self-start sm:self-auto"
+            >
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>Naik Kelas {selectedClass}</span>
+            </button>
+          </div>
+        )}
+
+        {(selectedStatus === 'Mutasi Masuk' || selectedStatus === 'Mutasi Keluar') && (
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 text-emerald-950">
+              <ArrowRightLeft className="w-4 h-4 text-emerald-700 shrink-0" />
+              <span>
+                <strong>Manajemen Siswa Mutasi:</strong> Anda sedang melihat data siswa {selectedStatus}. Anda dapat mencatat siswa mutasi masuk baru atau mencatat mutasi keluar.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleOpenMutation(selectedStatus === 'Mutasi Masuk' ? 'masuk' : 'keluar')}
+              className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold whitespace-nowrap shadow-xs cursor-pointer flex items-center gap-1 self-start sm:self-auto"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Tambah {selectedStatus}</span>
+            </button>
+          </div>
+        )}
 
         {/* Filter Bar */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-2 border-t border-slate-100 text-xs">
@@ -640,9 +998,12 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
                           onClick={() => onSelectStudent(student)}
                         >
                           <img
-                            src={student.fotoUrl}
+                            src={getStudentPhoto(student)}
                             alt={student.namaLengkap}
                             className="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = getStudentPhoto(student);
+                            }}
                           />
                           <div>
                             <div className="font-bold text-slate-800 group-hover:text-blue-600 transition text-xs">
@@ -715,24 +1076,86 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
 
                       {/* Status */}
                       <td className="py-3 px-3">
-                        <span
-                          className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase ${
-                            student.status === 'Aktif'
-                              ? 'bg-green-100 text-green-700'
-                              : student.status === 'Mutasi'
-                              ? 'bg-amber-100 text-amber-700'
-                              : student.status === 'Lulus'
-                              ? 'bg-purple-100 text-purple-700'
-                              : 'bg-red-100 text-red-700'
-                          }`}
-                        >
-                          {student.status}
-                        </span>
+                        <div className="space-y-1">
+                          <span
+                            className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase inline-block ${
+                              student.status === 'Aktif'
+                                ? 'bg-green-100 text-green-700'
+                                : student.status === 'Mutasi Masuk'
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : student.status === 'Mutasi Keluar'
+                                ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                : student.status === 'Lulus'
+                                ? 'bg-purple-100 text-purple-700'
+                                : 'bg-red-100 text-red-700'
+                            }`}
+                          >
+                            {student.status}
+                          </span>
+
+                          {student.status === 'Mutasi Masuk' && (
+                            <div className="text-[10px] text-emerald-800 font-medium leading-tight">
+                              Dari: {student.pendidikanSebelumnya?.asalSdMi || 'Sekolah Lain'}
+                            </div>
+                          )}
+
+                          {student.status === 'Mutasi Keluar' && (
+                            <div className="text-[10px] text-amber-800 font-medium leading-tight">
+                              Ke: {student.pindahKeSekolah || 'Sekolah Tujuan'}
+                            </div>
+                          )}
+
+                          {student.status === 'Lulus' && student.melanjutkanKe && (
+                            <div className="text-[10px] text-purple-800 font-medium leading-tight">
+                              ➔ {student.melanjutkanKe}
+                            </div>
+                          )}
+                        </div>
                       </td>
 
                       {/* Actions Register Bar */}
-                      <td className="py-3 px-3 text-center whitespace-nowrap min-w-[200px]">
+                      <td className="py-3 px-3 text-center whitespace-nowrap min-w-[220px]">
                         <div className="inline-flex items-center justify-center gap-1 bg-slate-50/80 p-1 rounded-lg border border-slate-200/80 shadow-2xs">
+                          {/* 0. Contextual Naik Kelas / Luluskan */}
+                          {canEditStudent && (student.kelasSekarang?.startsWith('7') || student.kelasSekarang?.startsWith('8')) && student.status === 'Aktif' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenPromotionForSelection([student]);
+                              }}
+                              title={`Naikkan Kelas Siswa Ini ke Tingkat Berikutnya`}
+                              className="p-1.5 text-teal-700 bg-teal-50 hover:bg-teal-100 hover:border-teal-300 border border-teal-200 rounded-md transition-all shadow-2xs hover:scale-105 cursor-pointer"
+                            >
+                              <TrendingUp className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
+                          {canEditStudent && student.kelasSekarang?.startsWith('9') && student.status === 'Aktif' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenGraduationForSelection([student]);
+                              }}
+                              title="Luluskan Siswa Kelas 9 Ini ke Arsip Alumni"
+                              className="p-1.5 text-purple-700 bg-purple-50 hover:bg-purple-100 hover:border-purple-300 border border-purple-200 rounded-md transition-all shadow-2xs hover:scale-105 cursor-pointer"
+                            >
+                              <GraduationCap className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
+                          {canEditStudent && student.status === 'Aktif' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenMutation('keluar', student);
+                              }}
+                              title="Catat Mutasi Keluar untuk Siswa Ini"
+                              className="p-1.5 text-amber-700 bg-amber-50 hover:bg-amber-100 hover:border-amber-300 border border-amber-200 rounded-md transition-all shadow-2xs hover:scale-105 cursor-pointer"
+                            >
+                              <ArrowRightLeft className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
                           {/* 1. Lihat Buku Induk */}
                           <button
                             onClick={(e) => {
@@ -870,9 +1293,12 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
                   {/* Profile Header */}
                   <div className="flex items-center gap-3">
                     <img
-                      src={student.fotoUrl}
+                      src={getStudentPhoto(student)}
                       alt={student.namaLengkap}
                       className="w-12 h-12 rounded-lg object-cover border border-slate-200 shadow-sm shrink-0"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = getStudentPhoto(student);
+                      }}
                     />
                     <div>
                       <h3
@@ -1111,6 +1537,89 @@ export const StudentListView: React.FC<StudentListViewProps> = ({
             </div>
           )}
         </div>
+      )}
+
+      {/* Import Student Excel Modal */}
+      {isImportModalOpen && (
+        <ImportStudentExcelModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          existingStudents={students}
+          onApplyImport={(imported, mode) => {
+            if (onImportStudents) {
+              onImportStudents(imported, mode);
+            }
+            setIsImportModalOpen(false);
+          }}
+        />
+      )}
+
+      {/* Modal Kenaikan Kelas (Tingkat 7 & 8) */}
+      {isPromotionModalOpen && onPromoteStudents && (
+        <ClassPromotionModal
+          isOpen={isPromotionModalOpen}
+          onClose={() => {
+            setIsPromotionModalOpen(false);
+            setSelectedStudentsForPromotion([]);
+          }}
+          students={students}
+          preSelectedStudents={selectedStudentsForPromotion}
+          currentAcademicYear={schoolProfile?.tahunAjaranAktif || '2024/2025'}
+          onConfirmPromotion={async (promotions) => {
+            await onPromoteStudents(promotions);
+            setIsPromotionModalOpen(false);
+            setSelectedStudentsForPromotion([]);
+            setSelectedIds([]);
+          }}
+        />
+      )}
+
+      {/* Modal Kelulusan (Tingkat 9 -> Alumni) */}
+      {isGraduationModalOpen && onGraduateStudents && (
+        <GraduationModal
+          isOpen={isGraduationModalOpen}
+          onClose={() => {
+            setIsGraduationModalOpen(false);
+            setSelectedStudentsForGraduation([]);
+          }}
+          students={students}
+          preSelectedStudents={selectedStudentsForGraduation}
+          currentAcademicYear={schoolProfile?.tahunAjaranAktif || '2024/2025'}
+          onConfirmGraduation={async (graduations) => {
+            await onGraduateStudents(graduations);
+            setIsGraduationModalOpen(false);
+            setSelectedStudentsForGraduation([]);
+            setSelectedIds([]);
+          }}
+        />
+      )}
+
+      {/* Modal Mutasi Siswa (Masuk & Keluar) */}
+      {isMutationModalOpen && (
+        <MutationModal
+          isOpen={isMutationModalOpen}
+          onClose={() => {
+            setIsMutationModalOpen(false);
+            setSelectedStudentForMutation(null);
+          }}
+          students={students}
+          initialMode={mutationModalMode}
+          selectedStudent={selectedStudentForMutation}
+          currentAcademicYear={schoolProfile?.tahunAjaranAktif || '2024/2025'}
+          onSaveMutationMasuk={async (newStudent) => {
+            if (onSaveMutationMasuk) {
+              await onSaveMutationMasuk(newStudent);
+            }
+            setIsMutationModalOpen(false);
+          }}
+          onSaveMutationKeluar={async (studentId, mutationData) => {
+            if (onSaveMutationKeluar) {
+              await onSaveMutationKeluar(studentId, mutationData);
+            }
+            setIsMutationModalOpen(false);
+            setSelectedStudentForMutation(null);
+          }}
+        />
       )}
     </div>
   );

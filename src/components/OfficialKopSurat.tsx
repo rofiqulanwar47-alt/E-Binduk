@@ -42,13 +42,13 @@ export const OfficialKopSurat: React.FC<OfficialKopSuratProps> = ({
             Dinas Pendidikan Kepemudaan dan Olahraga
           </h3>
           <h2 className="text-base sm:text-lg lg:text-xl font-extrabold uppercase tracking-wide text-slate-950 mt-0.5 leading-tight">
-            {schoolProfile.namaSekolah || 'SMP NEGERI 2 KASIHAN'}
+            {schoolProfile.namaSekolah}
           </h2>
           <p className="text-[10px] sm:text-[11px] text-slate-700 mt-0.5 leading-tight">
-            {schoolProfile.alamat}, Kel. {schoolProfile.kelurahan}, Kec. {schoolProfile.kecamatan}, {schoolProfile.kabupaten}, D.I. Yogyakarta {schoolProfile.kodePos}
+            {schoolProfile.alamat}, Kel. {schoolProfile.kelurahan}, Kec. {schoolProfile.kecamatan}, {schoolProfile.kabupaten}, {schoolProfile.provinsi} {schoolProfile.kodePos}
           </p>
           <p className="text-[9px] sm:text-[10px] text-slate-600 leading-tight">
-            NPSN: {schoolProfile.npsn} &bull; NSS: {schoolProfile.nss || '-'} &bull; Akreditasi: {schoolProfile.akreditasi || 'A'} &bull; Email: {schoolProfile.email}
+            NPSN: {schoolProfile.npsn} &bull; NSS: {schoolProfile.nss || '-'} &bull; Akreditasi: {schoolProfile.akreditasi || 'A'} &bull; Telp: {schoolProfile.noTelepon || schoolProfile.telepon || '-'} &bull; Email: {schoolProfile.email} {schoolProfile.website ? `&bull; Web: ${schoolProfile.website}` : ''}
           </p>
           {subTitle && (
             <p className="text-[10px] font-bold text-emerald-800 mt-0.5 uppercase tracking-wider">

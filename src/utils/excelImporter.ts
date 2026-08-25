@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { Student, Gender, Religion, BloodType, StudentStatus, AdmissionTrack } from '../types';
+import { getDefaultStudentPhoto } from './studentPhotos';
 
 /**
  * Helper to convert Excel date serial numbers or date strings to YYYY-MM-DD
@@ -494,11 +495,10 @@ export async function parseExcelStudentFile(
         jumlahSaudaraAngkat: 0,
         statusDalamKeluarga: 'Anak Kandung',
         bahasaSehariHari: 'Bahasa Jawa, Bahasa Indonesia',
-        fotoUrl: String(getVal(row, 'Foto URL', 'fotoUrl') || (
-          jenisKelamin === 'L'
-            ? 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=300'
-            : 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=300'
-        )),
+        fotoUrl: String(
+          getVal(row, 'Foto URL', 'fotoUrl', 'Foto') ||
+          getDefaultStudentPhoto(jenisKelamin, namaLengkap || nisn || index)
+        ),
 
         tempatTinggal: {
           alamatLengkap: String(getVal(row, 'Alamat Lengkap', 'Alamat', 'alamatLengkap') || 'Kasihan, Bantul'),
@@ -691,21 +691,21 @@ export function generateScoreReportExcelTemplate(
       s.namaLengkap || '',
       s.kelasSekarang || selectedClass,
       s.jenisKelamin || 'L',
-      scores?.pai ?? 80,
-      scores?.pancasila ?? 82,
-      scores?.bahasaIndonesia ?? 85,
-      scores?.matematika ?? 78,
-      scores?.ipa ?? 80,
-      scores?.ips ?? 83,
-      scores?.bahasaInggris ?? 81,
-      scores?.seniBudaya ?? 86,
-      scores?.pjok ?? 84,
-      scores?.informatika ?? 85,
-      scores?.bahasaJawa ?? 84,
-      kehadiran?.sakit ?? 0,
-      kehadiran?.izin ?? 0,
-      kehadiran?.tanpaKeterangan ?? 0,
-      scores?.catatan || 'Capaian kompetensi sangat baik dan aktif dalam pembelajaran.',
+      scores?.pai !== undefined && scores?.pai !== null ? scores.pai : '',
+      scores?.pancasila !== undefined && scores?.pancasila !== null ? scores.pancasila : '',
+      scores?.bahasaIndonesia !== undefined && scores?.bahasaIndonesia !== null ? scores.bahasaIndonesia : '',
+      scores?.matematika !== undefined && scores?.matematika !== null ? scores.matematika : '',
+      scores?.ipa !== undefined && scores?.ipa !== null ? scores.ipa : '',
+      scores?.ips !== undefined && scores?.ips !== null ? scores.ips : '',
+      scores?.bahasaInggris !== undefined && scores?.bahasaInggris !== null ? scores.bahasaInggris : '',
+      scores?.seniBudaya !== undefined && scores?.seniBudaya !== null ? scores.seniBudaya : '',
+      scores?.pjok !== undefined && scores?.pjok !== null ? scores.pjok : '',
+      scores?.informatika !== undefined && scores?.informatika !== null ? scores.informatika : '',
+      scores?.bahasaJawa !== undefined && scores?.bahasaJawa !== null ? scores.bahasaJawa : '',
+      kehadiran?.sakit ?? '',
+      kehadiran?.izin ?? '',
+      kehadiran?.tanpaKeterangan ?? '',
+      scores?.catatan || '',
     ];
   });
 
@@ -800,11 +800,11 @@ export async function parseExcelScoreReportFile(
         const warnings: string[] = [];
         const matchedDetails: Array<{ studentName: string; nisn: string; average: number }> = [];
 
-        // Helper to get number value clamped between 0 and 100
-        const parseScore = (val: any, defaultVal = 0): number => {
-          if (val === undefined || val === null || val === '') return defaultVal;
+        // Helper to get number value clamped between 0 and 100 or undefined if empty
+        const parseScore = (val: any): number | undefined => {
+          if (val === undefined || val === null || val === '') return undefined;
           const num = Number(val);
-          if (isNaN(num)) return defaultVal;
+          if (isNaN(num)) return undefined;
           return Math.max(0, Math.min(100, Math.round(num)));
         };
 
@@ -871,30 +871,31 @@ export async function parseExcelScoreReportFile(
             return;
           }
 
-          // Parse subject scores
-          const pai = parseScore(getCol('PAI', 'Agama', 'Pendidikan Agama', 'Pendidikan Agama & Budi Pekerti'), 80);
-          const pancasila = parseScore(getCol('PPKn/Pancasila', 'PPKn', 'Pancasila', 'Pendidikan Pancasila', 'PKn'), 80);
-          const bahasaIndonesia = parseScore(getCol('Bahasa Indonesia', 'B.Indo', 'B Indo', 'Bahasa Indo', 'BINDO'), 80);
-          const matematika = parseScore(getCol('Matematika', 'MTK', 'Mtk', 'Math'), 75);
-          const ipa = parseScore(getCol('IPA', 'Ilmu Pengetahuan Alam'), 78);
-          const ips = parseScore(getCol('IPS', 'Ilmu Pengetahuan Sosial'), 80);
-          const bahasaInggris = parseScore(getCol('Bahasa Inggris', 'B.Inggris', 'B Inggris', 'B.ING', 'BING'), 80);
-          const seniBudaya = parseScore(getCol('Seni Budaya', 'Seni', 'SBK', 'Seni Rupa', 'Seni Musik'), 85);
-          const pjok = parseScore(getCol('PJOK', 'Penjas', 'Penjaskes', 'Olahraga'), 84);
-          const informatika = parseScore(getCol('Informatika', 'TIK', 'Komputer'), 85);
-          const bahasaJawa = parseScore(getCol('Bahasa Jawa', 'B.Jawa', 'B Jawa', 'Mulok Bahasa Jawa', 'BJAWA'), 82);
+          // Parse subject scores (leaves empty/undefined if cell is empty)
+          const pai = parseScore(getCol('PAI', 'Agama', 'Pendidikan Agama', 'Pendidikan Agama & Budi Pekerti'));
+          const pancasila = parseScore(getCol('PPKn/Pancasila', 'PPKn', 'Pancasila', 'Pendidikan Pancasila', 'PKn'));
+          const bahasaIndonesia = parseScore(getCol('Bahasa Indonesia', 'B.Indo', 'B Indo', 'Bahasa Indo', 'BINDO'));
+          const matematika = parseScore(getCol('Matematika', 'MTK', 'Mtk', 'Math'));
+          const ipa = parseScore(getCol('IPA', 'Ilmu Pengetahuan Alam'));
+          const ips = parseScore(getCol('IPS', 'Ilmu Pengetahuan Sosial'));
+          const bahasaInggris = parseScore(getCol('Bahasa Inggris', 'B.Inggris', 'B Inggris', 'B.ING', 'BING'));
+          const seniBudaya = parseScore(getCol('Seni Budaya', 'Seni', 'SBK', 'Seni Rupa', 'Seni Musik'));
+          const pjok = parseScore(getCol('PJOK', 'Penjas', 'Penjaskes', 'Olahraga'));
+          const informatika = parseScore(getCol('Informatika', 'TIK', 'Komputer'));
+          const bahasaJawa = parseScore(getCol('Bahasa Jawa', 'B.Jawa', 'B Jawa', 'Mulok Bahasa Jawa', 'BJAWA'));
 
           const sakit = parseDays(getCol('Sakit', 'S'));
           const izin = parseDays(getCol('Izin', 'I'));
           const tanpaKeterangan = parseDays(getCol('Alpa', 'Tanpa Keterangan', 'TK', 'A'));
           const catatan = String(getCol('Catatan Akademik', 'Catatan', 'Keterangan') || '').trim();
 
-          const allScores = [
+          const scoreList = [
             pai, pancasila, bahasaIndonesia, matematika, ipa,
             ips, bahasaInggris, seniBudaya, pjok, informatika, bahasaJawa
-          ];
-          const total = allScores.reduce((a, b) => a + b, 0);
-          const rataRata = Number((total / allScores.length).toFixed(1));
+          ].filter((v): v is number => typeof v === 'number');
+
+          const total = scoreList.reduce((a, b) => a + b, 0);
+          const rataRata = scoreList.length > 0 ? Number((total / scoreList.length).toFixed(1)) : undefined;
 
           const semesterNum = (semester as 1 | 2 | 3 | 4 | 5 | 6);
 
@@ -919,15 +920,15 @@ export async function parseExcelScoreReportFile(
               informatika,
               bahasaJawa,
               rataRata,
-              catatan: catatan || 'Capaian kompetensi sangat baik dan konsisten.',
+              catatan: catatan || (rataRata ? 'Capaian kompetensi baik dan konsisten.' : ''),
             },
             kehadiran: {
               sakit,
               izin,
               tanpaKeterangan,
             },
-            sikapSpiritual: (rataRata >= 85 ? 'Sangat Baik' : 'Baik') as 'Sangat Baik' | 'Baik' | 'Cukup',
-            sikapSosial: (rataRata >= 85 ? 'Sangat Baik' : 'Baik') as 'Sangat Baik' | 'Baik' | 'Cukup',
+            sikapSpiritual: ((rataRata && rataRata >= 85) ? 'Sangat Baik' : 'Baik') as 'Sangat Baik' | 'Baik' | 'Cukup',
+            sikapSosial: ((rataRata && rataRata >= 85) ? 'Sangat Baik' : 'Baik') as 'Sangat Baik' | 'Baik' | 'Cukup',
           };
 
           if (existingReportIdx >= 0) {

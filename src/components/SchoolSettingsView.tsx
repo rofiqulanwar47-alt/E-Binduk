@@ -1576,7 +1576,7 @@ export const SchoolSettingsView: React.FC<SchoolSettingsViewProps> = ({
                 </div>
 
                 <p className="text-[11px] text-slate-500 mt-1.5 italic">
-                  {ROLE_DESCRIPTIONS[userModalForm.role]}
+                  {ROLE_DESCRIPTIONS[userModalForm.role]?.summary}
                 </p>
               </div>
 
